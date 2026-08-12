@@ -16,6 +16,8 @@ class GotifyClient extends EventEmitter {
     this.duplicateWindowMs = 1500;
     this.debugEnabled = false;
     this.socketSerial = 0;
+    this.heartbeatTimer = null;
+    this.pongTimeout = null;
   }
 
   start(config) {
@@ -42,6 +44,7 @@ class GotifyClient extends EventEmitter {
   stop() {
     this.intentionalDisconnect = true;
     this.clearReconnect();
+    this.stopHeartbeat();
     if (this.ws) {
       try {
         this.ws.removeAllListeners();
@@ -76,6 +79,10 @@ class GotifyClient extends EventEmitter {
         this.setConnected(true, "已连接");
         this.reconnectDelay = 5000;
         this.lastErrorMessage = "";
+        this.startHeartbeat();
+      });
+      socket.on("pong", () => {
+        this.onPong();
       });
       socket.on("message", (payload) => {
         try {
@@ -100,6 +107,7 @@ class GotifyClient extends EventEmitter {
         this.setConnected(false, `连接异常: ${this.lastErrorMessage}`);
       });
       socket.on("close", (code, reasonBuffer) => {
+        this.stopHeartbeat();
         if (this.ws === socket) {
           this.ws = null;
         }
@@ -152,6 +160,48 @@ class GotifyClient extends EventEmitter {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+  }
+
+  // Client-initiated ping/pong heartbeat. A half-open socket (sleep / network
+  // change / NAT drop, no close frame delivered) never emits 'close', so the
+  // reconnect logic above would never fire and the client would stay "已连接"
+  // while receiving nothing. Pinging every 30s and terminating when no pong
+  // returns forces a 'close' → the existing scheduleReconnect() resumes.
+  // Standard ws-library heartbeat pattern; server (gorilla) auto-replies pong.
+  startHeartbeat() {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        try {
+          this.ws.ping();
+        } catch {}
+        this.pongTimeout = setTimeout(() => {
+          // No pong within 15s → treat as half-open and force-close so the
+          // existing close→reconnect path runs.
+          try {
+            this.ws.terminate();
+          } catch {}
+        }, 15000);
+      }
+    }, 30000);
+  }
+
+  onPong() {
+    if (this.pongTimeout) {
+      clearTimeout(this.pongTimeout);
+      this.pongTimeout = null;
+    }
+  }
+
+  stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+    if (this.pongTimeout) {
+      clearTimeout(this.pongTimeout);
+      this.pongTimeout = null;
     }
   }
 
