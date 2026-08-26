@@ -194,7 +194,7 @@ function buildCustomNotificationHtml({ title, subtitle, body, id, verificationCo
     .close svg { width: 12px; height: 12px; }
     .title { font-size: 14px; font-weight: 600; color: ${c.title}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .body { font-size: 13px; line-height: 1.4; color: ${c.body}; white-space: pre-line; max-height: 72px; overflow: hidden; }
-    .code { font-family: Consolas, "Cascadia Mono", monospace; font-variant-numeric: tabular-nums; color: ${c.code}; background: ${c.codeBg}; border-radius: 4px; padding: 0 5px; }
+    .code { font-family: "Cascadia Mono", Consolas, monospace; font-variant-numeric: tabular-nums; color: ${c.code}; background: ${c.codeBg}; border-radius: 4px; padding: 0 5px; }
     .code.ok { color: #ffffff; background: #22c55e; }
     .actions { display: ${code ? "flex" : "none"}; gap: 14px; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(128, 128, 128, 0.22); }
     .act { background: none; border: none; padding: 2px 4px; font-size: 12px; color: ${c.act}; cursor: pointer; border-radius: 4px; }

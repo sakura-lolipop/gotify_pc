@@ -491,7 +491,7 @@ function MessageCard({ item, appLabel, onToggleFavorite, verificationCode }: { i
                 key={index}
                 onClick={onCopyCode}
                 title={copied ? "已复制" : "点击复制验证码"}
-                className="mx-0.5 rounded bg-black/[0.05] px-1.5 py-px font-mono text-[13px] tabular-nums text-text hover:bg-black/[0.09] dark:bg-white/[0.08] dark:hover:bg-white/[0.14]"
+                className="mx-0.5 rounded bg-black/[0.05] px-1.5 py-px [font-family:"Cascadia_Mono",Consolas,monospace] text-[13px] tabular-nums text-text hover:bg-black/[0.09] dark:bg-white/[0.08] dark:hover:bg-white/[0.14]"
               >
                 {copied ? "已复制 ✓" : part.text}
               </button>
