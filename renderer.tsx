@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, Dispatch, SetStateAction } from "react";
 import { createRoot } from "react-dom/client";
+import { IconGear, IconMore, IconStarOutline, IconStarFilled, IconClearText, IconInbox } from "./renderer-icons";
 
 const DEFAULT_CONFIG = {
   serverUrl: "",
@@ -433,23 +434,7 @@ function MessageCard({ item, appLabel, onToggleFavorite }: { item: MessageItem; 
               className="text-text-muted hover:text-amber-400 focus:outline-none"
               title={item.favorite ? "取消收藏" : "收藏"}
             >
-              {item.favorite ? (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-amber-400">
-                  <path
-                    fillRule="evenodd"
-                    d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.563.044.793.745.362 1.116l-4.208 3.527a.562.562 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.208-3.527c-.433-.371-.202-1.072.362-1.116l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
-                  />
-                </svg>
-              )}
+              {item.favorite ? <IconStarFilled className="h-4 w-4 text-amber-400" /> : <IconStarOutline className="h-4 w-4" />}
             </button>
             <div className="whitespace-nowrap text-[12px] text-text-muted">{formatDate(item.date)}</div>
           </div>
@@ -486,6 +471,7 @@ function App() {
   const [selectedAppId, setSelectedAppId] = useState("all");
   const [searchText, setSearchText] = useState("");
   const [showFavorites, setShowFavorites] = useState(false);
+  const [overflowOpen, setOverflowOpen] = useState(false);
 
   useEffect(() => {
     // CP6：.dark 类的挂/摘只听 nativeTheme 下推（单一事实，含手动覆盖的解析结果）
@@ -745,13 +731,7 @@ function App() {
             />
             {searchText ? (
               <button onClick={() => setSearchText("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-soft">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+                <IconClearText className="h-4 w-4" />
               </button>
             ) : null}
           </div>
@@ -774,13 +754,7 @@ function App() {
         <div className="scroll-thin min-h-0 flex-1 overflow-y-auto rounded border border-border bg-card">
           {visibleMessages.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 py-16 text-text-muted">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.2} stroke="currentColor" className="h-10 w-10 text-text-disabled">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M21.75 9v.906a2.25 2.25 0 01-1.183 1.981l-6.478 3.488M2.25 9v.906a2.25 2.25 0 001.183 1.981l6.478 3.488m8.839 0a2.25 2.25 0 011.183-1.981M3.75 20.25l3.99-2.147M12 3.75c-1.5 0-3 .75-3 3v1.626A5.993 5.993 0 019 10.5c0 .984.237 1.916.66 2.74L6.75 15.75c-1.5-1.5-2.25-6-2.25-6V6.75c0-1.5 1.5-3 3-3h9c1.5 0 3 1.5 3 3v.906M12 3.75c1.5 0 3 .75 3 3v1.626c0 2.25.75 4.5 2.25 6l-2.946 2.228A8.966 8.966 0 0112 21.75c-1.06 0-2.09-.184-3.046-.526m6.796-6.796L12 15.75"
-                />
-              </svg>
+              <IconInbox className="h-10 w-10 text-text-disabled" />
               <div className="text-[14px]">
                 {showFavorites ? "暂无收藏消息" : searchText ? `没有匹配「${searchText}」的消息` : "暂无消息"}
               </div>
@@ -805,19 +779,49 @@ function App() {
             <div className={`text-[14px] font-semibold ${statusColor}`}>{status.status || "未连接"}</div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={onToggleConnection} className="h-10 rounded border border-border px-4 text-[14px] text-text-soft">
-              {status.connected ? "断开" : "连接"}
-            </button>
-            <button onClick={() => setSettingsOpen(true)} className="h-10 rounded border border-border px-4 text-[14px] text-text-soft">
-              设置
-            </button>
             <button
-              onClick={onClearMessages}
-              disabled={visibleMessages.length === 0 || clearing}
-              className="h-10 rounded border border-red-400 px-4 text-[14px] text-red-500 disabled:opacity-40"
+              onClick={() => setSettingsOpen(true)}
+              title="设置"
+              className="flex h-9 w-9 items-center justify-center rounded border border-border bg-card text-text-soft hover:bg-card-hover focus:outline-none"
             >
-              {clearing ? "清空中..." : "清空消息"}
+              <IconGear className="h-4 w-4" />
             </button>
+            <div className="relative">
+              <button
+                onClick={() => setOverflowOpen((prev) => !prev)}
+                title="更多"
+                className="flex h-9 w-9 items-center justify-center rounded border border-border bg-card text-text-soft hover:bg-card-hover focus:outline-none"
+              >
+                <IconMore className="h-4 w-4" />
+              </button>
+              {overflowOpen ? (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setOverflowOpen(false)} />
+                  <div className="absolute bottom-full right-0 z-50 mb-2 min-w-[150px] rounded border border-border bg-panel py-1 shadow-lg">
+                    <button
+                      onClick={() => {
+                        setOverflowOpen(false);
+                        onToggleConnection();
+                      }}
+                      className="block w-full px-4 py-2 text-left text-[13px] text-text-soft hover:bg-card-hover"
+                    >
+                      {status.connected ? "断开连接" : "连接服务器"}
+                    </button>
+                    <div className="my-1 border-t border-border-light" />
+                    <button
+                      onClick={() => {
+                        setOverflowOpen(false);
+                        onClearMessages();
+                      }}
+                      disabled={visibleMessages.length === 0 || clearing}
+                      className="block w-full px-4 py-2 text-left text-[13px] text-danger-text hover:bg-danger-bg disabled:opacity-40"
+                    >
+                      {clearing ? "清空中..." : "清空消息"}
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
