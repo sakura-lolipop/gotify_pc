@@ -24689,7 +24689,7 @@ function SettingsModal({
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-slate-500 whitespace-nowrap", children: "(\u4EC5\u5728\u81EA\u52A8\u6D88\u5931\u542F\u7528\u65F6)" })
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mt-2 flex items-center gap-2 text-[14px]", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "whitespace-nowrap", children: "\u901A\u77E5\u4E2D\u5FC3\u7559\u6863(\u5206\u949F):" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "whitespace-nowrap", children: "\u901A\u77E5\u4E2D\u5FC3\u5B58\u6863(\u5206\u949F):" }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
               "input",
               {
@@ -24706,9 +24706,9 @@ function SettingsModal({
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mt-2", children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "flex items-center gap-2 text-[14px]", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "checkbox", checked: config.codeSmartExpiry, onChange: onCodeSmartExpiryChange }),
-              "\u9A8C\u8BC1\u7801\u6309\u77ED\u4FE1\u6709\u6548\u671F\u7559\u6863"
+              "\u9A8C\u8BC1\u7801\u6309\u77ED\u4FE1\u6709\u6548\u671F\u5B58\u6863"
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-1 text-[12px] text-slate-400", children: "\u52FE\u9009\u540E\u9A8C\u8BC1\u7801\u6D88\u606F\u6309\u77ED\u4FE1\u4E2D\u7684\u300CN\u5206\u949F\u300D\u7559\u6863\uFF0C\u8BC6\u522B\u4E0D\u5230\u65F6\u56DE\u843D\u5230\u4E0A\u65B9\u65F6\u957F" })
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-1 text-[12px] text-slate-400", children: "\u52FE\u9009\u540E\u9A8C\u8BC1\u7801\u6D88\u606F\u6309\u77ED\u4FE1\u4E2D\u7684\u300CN\u5206\u949F\u300D\u5B58\u6863\uFF0C\u8BC6\u522B\u4E0D\u5230\u65F6\u56DE\u843D\u5230\u4E0A\u65B9\u65F6\u957F" })
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mt-3", children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mb-1 text-[12px] font-semibold text-slate-600", children: "\u5C4F\u853D\u5F39\u7A97\u5206\u7EC4:" }),
