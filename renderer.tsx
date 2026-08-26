@@ -10,6 +10,8 @@ const DEFAULT_CONFIG = {
   notificationAutoHide: true,
   notificationNeverClose: false,
   notificationDuration: 5000,
+  archiveExpiryMinutes: 60,
+  codeSmartExpiry: true,
   minimizeToTray: true,
   showMainWindowOnStartup: true,
   autoLaunch: false,
@@ -145,6 +147,12 @@ function SettingsModal({
   const onDurationChange = (event: ChangeEvent<HTMLInputElement>) => {
     setConfig((prev) => ({ ...prev, notificationDuration: Number(event.target.value || 0) }));
   };
+  const onArchiveExpiryChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setConfig((prev) => ({ ...prev, archiveExpiryMinutes: Number(event.target.value || 0) }));
+  };
+  const onCodeSmartExpiryChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setConfig((prev) => ({ ...prev, codeSmartExpiry: event.target.checked }));
+  };
   const onMinimizeToTrayChange = (event: ChangeEvent<HTMLInputElement>) => {
     setConfig((prev) => ({ ...prev, minimizeToTray: event.target.checked }));
   };
@@ -254,6 +262,25 @@ function SettingsModal({
                 className="h-9 w-28 rounded border px-2 text-[14px] disabled:bg-slate-100"
               />
               <div className="text-slate-500 whitespace-nowrap">(仅在自动消失启用时)</div>
+            </div>
+            <div className="mt-2 flex items-center gap-2 text-[14px]">
+              <div className="whitespace-nowrap">通知中心留档(分钟):</div>
+              <input
+                type="number"
+                value={config.archiveExpiryMinutes}
+                onChange={onArchiveExpiryChange}
+                min={1}
+                step={5}
+                className="h-9 w-28 rounded border px-2 text-[14px]"
+              />
+              <div className="text-slate-500 whitespace-nowrap">(每条消息在系统通知中心的保留时长)</div>
+            </div>
+            <div className="mt-2">
+              <label className="flex items-center gap-2 text-[14px]">
+                <input type="checkbox" checked={config.codeSmartExpiry} onChange={onCodeSmartExpiryChange} />
+                验证码按短信有效期留档
+              </label>
+              <div className="mt-1 text-[12px] text-slate-400">勾选后验证码消息按短信中的「N分钟」留档，识别不到时回落到上方时长</div>
             </div>
             <div className="mt-3">
               <div className="mb-1 text-[12px] font-semibold text-slate-600">屏蔽弹窗分组:</div>

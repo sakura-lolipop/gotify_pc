@@ -9,6 +9,8 @@ const DEFAULT_CONFIG = {
   notificationAutoHide: true,
   notificationNeverClose: false,
   notificationDuration: 5000,
+  archiveExpiryMinutes: 60,
+  codeSmartExpiry: true,
   minimizeToTray: true,
   showMainWindowOnStartup: true,
   autoLaunch: false,

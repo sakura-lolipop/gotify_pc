@@ -449,6 +449,21 @@ function extractVerificationCode(title, message) {
   return "";
 }
 
+// SMS validity window stated in the message body, e.g. "10分钟内有效".
+// Returns 0 when nothing parseable; the caller falls back to the manual
+// setting. Sanity-clamped so garbage parses cannot pin a toast forever.
+function parseStatedExpiryMinutes(message) {
+  const match = String(message || "").match(/(\d{1,3})\s*分钟/);
+  if (!match) {
+    return 0;
+  }
+  const minutes = Number(match[1]);
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    return 0;
+  }
+  return Math.min(minutes, 120);
+}
+
 let archivalToastLoading = null;
 
 // Silent archival twin of the custom card: "卡片管当下，中心管回看"。
@@ -459,7 +474,7 @@ let archivalToastLoading = null;
 // 1 h so the center never accumulates corpses. Requires the Start Menu
 // shortcut to carry APP_USER_MODEL_ID; degrades silently to card-only if
 // the toast stack is unavailable.
-async function sendArchivalToast(message) {
+async function sendArchivalToast(message, config) {
   try {
     if (!archivalToastLoading) {
       // powertoast v3 is ESM-only with top-level await; dynamic import
@@ -468,6 +483,17 @@ async function sendArchivalToast(message) {
     }
     const { Toast, remove } = await archivalToastLoading;
     const code = extractVerificationCode(message.title, message.message);
+    // Retention: manual setting by default; when a verification code's SMS
+    // states its own validity window ("N分钟") and smart expiry is on, the
+    // stated window wins (falling back to manual when unparseable).
+    const manualMs = Math.max(1, Number(config?.archiveExpiryMinutes) || 60) * 60 * 1000;
+    let expiryMs = manualMs;
+    if (code && config?.codeSmartExpiry) {
+      const statedMinutes = parseStatedExpiryMinutes(message.message);
+      if (statedMinutes > 0) {
+        expiryMs = statedMinutes * 60 * 1000;
+      }
+    }
     const uniqueID = `gotify-${message.id}`;
     const toast = new Toast({
       aumid: APP_USER_MODEL_ID,
@@ -490,7 +516,7 @@ async function sendArchivalToast(message) {
     });
     setTimeout(() => {
       remove(APP_USER_MODEL_ID, uniqueID).catch(() => {});
-    }, code ? 10 * 60 * 1000 : 60 * 60 * 1000).unref();
+    }, expiryMs).unref();
     await toast.show({ disablePowershellCore: true });
   } catch (error) {
     console.error("[ArchivalToast] failed:", error?.message || error);
@@ -621,7 +647,7 @@ function bindGotifyEvents() {
 
     if (config.showCustomNotification) {
       showCustomNotification(enriched, config);
-      sendArchivalToast(enriched);
+      sendArchivalToast(enriched, config);
     } else {
       const verificationCode = extractVerificationCode(enriched.title, enriched.message);
 
