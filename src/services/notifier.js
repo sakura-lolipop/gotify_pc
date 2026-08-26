@@ -178,7 +178,10 @@ function buildCustomNotificationHtml({ iconDataUrl, title, subtitle, body, id, v
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; padding: 0; overflow: hidden; background: transparent; font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei", sans-serif; }
-    .card { width: ${NOTIFICATION_WIDTH}px; border-radius: 8px; background: ${c.card}; color: ${c.title}; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); animation: popup .18s ease-out; cursor: pointer; transition: background 0.2s; }
+    /* 二轮 S4 修正：卡全出血方角——DWM 不给 frameless+transparent 窗做系统圆角，
+       圆角卡会在直角窗面上露出四角材质+投影被窗缘裁成直角圈（用户实证）。
+       材质面=卡面完全重合，靠 DWM acrylic 自带 luminosity 边收边。 */
+    .card { width: ${NOTIFICATION_WIDTH}px; background: ${c.card}; color: ${c.title}; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; animation: popup .18s ease-out; cursor: pointer; transition: background 0.2s; }
     .card:hover { background: ${c.cardHover}; }
     @keyframes popup { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     .meta { display: flex; align-items: center; gap: 8px; }
