@@ -30,10 +30,13 @@ class HistoryStore {
   }
 
   getMaxId() {
+    // Watermark for REST catch-up: server ids only. Local-namespace ids are
+    // strings and non-integer numbers cannot come from the server pipeline —
+    // neither may ever raise the watermark or catch-up goes blind (L3).
     let max = 0;
     for (const item of this.messages) {
       const id = Number(item?.id);
-      if (Number.isFinite(id) && id > max) {
+      if (Number.isInteger(id) && id > max) {
         max = id;
       }
     }

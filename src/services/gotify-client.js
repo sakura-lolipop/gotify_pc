@@ -17,6 +17,7 @@ class GotifyClient extends EventEmitter {
     this.duplicateWindowMs = 1500;
     this.debugEnabled = false;
     this.socketSerial = 0;
+    this.localIdSeq = 0;
     this.heartbeatTimer = null;
     this.pongTimeout = null;
   }
@@ -248,8 +249,16 @@ class GotifyClient extends EventEmitter {
 
   normalizeMessage(message) {
     const now = new Date().toISOString();
+    // Server ids are positive integers. Deliveries without one used to fall
+    // back to Date.now() — an astronomical number that polluted history and
+    // inflated the getMaxId() watermark, permanently blinding REST catch-up
+    // (its "id > lastId" filter would exclude everything after it). Malformed
+    // deliveries now get a local string id from a monotonic counter: it can
+    // never enter the watermark or the numeric dedup set (L3).
+    const rawId = Number(message?.id);
+    const id = Number.isInteger(rawId) && rawId > 0 ? rawId : `local-${++this.localIdSeq}`;
     return {
-      id: Number(message.id || Date.now()),
+      id,
       appid: Number(message.appid || 0),
       title: String(message.title || "新通知"),
       message: String(message.message || ""),
