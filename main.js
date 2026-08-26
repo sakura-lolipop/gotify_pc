@@ -217,7 +217,10 @@ function createWindow() {
     minWidth: 760,
     minHeight: 520,
     icon: appIcon,
-    backgroundColor: "#f7fafc",
+    // Win11 Mica（ui-scan M1 配方）：删自绘 backgroundColor，窗口底交给 DWM
+    // 材质；网页侧 body 须透明才能透出（index.html 同步改）。低版本 Windows
+    // 静默回退普通窗口，需 index.html 兜底色。
+    ...(process.platform === "win32" ? { backgroundMaterial: "mica" } : {}),
     // 开机自启（或带 --hidden）时不显示主窗口，仅驻留托盘；手动双击正常显示
     show: Boolean(config.showMainWindowOnStartup) && !startHiddenAtLaunch,
     webPreferences: {

@@ -25083,7 +25083,7 @@ function App() {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex h-full items-center justify-center text-slate-500", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[20px]", children: "\u52A0\u8F7D\u4E2D..." }) });
   }
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex h-full flex-col", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center justify-between bg-white px-3 py-2 shadow-sm", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center justify-between bg-white/70 px-3 py-2 shadow-sm", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-4", children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
           "button",

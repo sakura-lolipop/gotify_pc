@@ -706,7 +706,7 @@ function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between bg-white px-3 py-2 shadow-sm">
+      <div className="flex items-center justify-between bg-white/70 px-3 py-2 shadow-sm">
         <div className="flex items-center gap-4">
           <button
             onClick={() => setShowFavorites(false)}
