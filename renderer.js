@@ -24540,6 +24540,9 @@ function IconClearText({ className = "h-4 w-4" }) {
 function IconSearch({ className = "h-4 w-4" }) {
   return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.6, stroke: "currentColor", className, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" }) });
 }
+function IconChevronDown({ className = "h-4 w-4" }) {
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.8, stroke: "currentColor", className, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M19 9l-7 7-7-7" }) });
+}
 function IconInbox({ className = "h-4 w-4" }) {
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.2, stroke: "currentColor", className, children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
@@ -25240,7 +25243,7 @@ function App() {
             className: "flex h-8 items-center gap-1 rounded-md border border-border bg-input px-2.5 text-[12px] text-text-soft hover:border-primary focus:outline-none",
             children: [
               /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "max-w-[120px] truncate", children: ((_a = applicationOptions.find((o) => String(o.id) === selectedAppId)) == null ? void 0 : _a.name) || "\u5168\u90E8\u5206\u7EC4" }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IconMore, { className: "h-3 w-3 rotate-90 text-text-muted" })
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IconChevronDown, { className: "h-3 w-3 text-text-muted" })
             ]
           }
         ),

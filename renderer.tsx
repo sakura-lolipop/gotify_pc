@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, Dispatch, SetStateAction } from "react";
 import { createRoot } from "react-dom/client";
-import { IconGear, IconMore, IconStarOutline, IconStarFilled, IconClearText, IconInbox, IconSearch } from "./renderer-icons";
+import { IconGear, IconMore, IconStarOutline, IconStarFilled, IconClearText, IconInbox, IconSearch, IconChevronDown } from "./renderer-icons";
 
 const DEFAULT_CONFIG = {
   serverUrl: "",
@@ -840,7 +840,7 @@ function App() {
             className="flex h-8 items-center gap-1 rounded-md border border-border bg-input px-2.5 text-[12px] text-text-soft hover:border-primary focus:outline-none"
           >
             <span className="max-w-[120px] truncate">{applicationOptions.find((o) => String(o.id) === selectedAppId)?.name || "全部分组"}</span>
-            <IconMore className="h-3 w-3 rotate-90 text-text-muted" />
+            <IconChevronDown className="h-3 w-3 text-text-muted" />
           </button>
           {groupMenuOpen ? (
             <>
