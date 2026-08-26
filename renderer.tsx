@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, Dispatch, SetStateAction } from "react";
 import { createRoot } from "react-dom/client";
-import { IconGear, IconMore, IconStarOutline, IconStarFilled, IconClearText, IconInbox } from "./renderer-icons";
+import { IconGear, IconMore, IconStarOutline, IconStarFilled, IconClearText, IconInbox, IconSearch } from "./renderer-icons";
 
 const DEFAULT_CONFIG = {
   serverUrl: "",
@@ -100,6 +100,8 @@ function SettingRow({ label, hint, children }: { label: string; hint?: string; c
 type GotifyAPI = {
   getAppVersion: () => Promise<string>;
   getThemeState: () => Promise<{ dark?: boolean }>;
+  extractCodes: (items: { title?: string; message?: string }[]) => Promise<string[]>;
+  writeClipboard: (text: string) => Promise<boolean>;
   getConfig: () => Promise<Partial<Config>>;
   saveConfig: (config: Config) => Promise<Config>;
   testConnection: (payload: { serverUrl: string; clientToken: string }) => Promise<void>;
@@ -134,6 +136,35 @@ function formatDate(value) {
   return `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
+// 二轮 S3：时间三档人性化——今天只给钟点、昨天带「昨天」、更早给日期。
+// 分组头与行内时间共用这两个函数（单一事实）。
+function dateGroupLabel(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  const now = new Date();
+  const startOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diffDays = Math.round((startOf(now) - startOf(date)) / 86400000);
+  if (diffDays <= 0) return "今天";
+  if (diffDays === 1) return "昨天";
+  return `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function timeText(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  const now = new Date();
+  const startOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diffDays = Math.round((startOf(now) - startOf(date)) / 86400000);
+  const hm = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  if (diffDays <= 0) return hm;
+  if (diffDays === 1) return `昨天 ${hm}`;
+  return `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ${hm}`;
+}
+
 function SettingsModal({
   onClose,
   initialConfig,
@@ -157,6 +188,25 @@ function SettingsModal({
   // （父组件条件挂载保证下次打开从真实 config 重建）。旧实现直接改 App 的
   // config state，取消后脏值残留。
   const [draft, setDraft] = useState<Config>({ ...initialConfig });
+  // 二轮 S5：脏稿两击确认关闭 + Esc（静默弃稿是 draft 模型的最后一块拼图）
+  const [armedClose, setArmedClose] = useState(false);
+  const draftDirty = JSON.stringify(draft) !== JSON.stringify(initialConfig);
+  const requestClose = () => {
+    if (draftDirty && !armedClose) {
+      setArmedClose(true);
+      return;
+    }
+    onClose();
+  };
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        requestClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   useEffect(() => {
     window.gotifyAPI.getApplications().then((apps) => {
@@ -191,8 +241,8 @@ function SettingsModal({
   };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[3px]" onClick={onClose}></div>
-      <div className="relative flex w-[640px] max-h-[86vh] max-w-[92vw] flex-col overflow-hidden rounded-lg bg-panel shadow-2xl">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-[3px] dark:bg-black/60" onClick={requestClose}></div>
+      <div className="relative flex w-[640px] max-h-[86vh] max-w-[92vw] flex-col overflow-hidden rounded-lg border border-black/[0.06] bg-panel shadow-2xl dark:border-white/[0.08]">
         <div className="border-b border-border-light px-5 py-3 text-[18px] font-semibold text-text">设置</div>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 text-[13px]">
           <div className="rounded border border-border-light bg-card-hover-alt p-3">
@@ -353,17 +403,17 @@ function SettingsModal({
         </div>
         <div className="shrink-0 flex items-center justify-between gap-3 border-t border-border-light bg-card-hover-alt px-5 py-3">
           <div className={`flex-1 min-w-0 break-words text-[13px] font-semibold leading-tight ${notice?.type === "error" ? "text-danger-text" : "text-success-text"}`}>
-            {notice?.text || ""}
+            {armedClose ? "有未保存的修改，再点一次关闭" : notice?.text || ""}
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <button onClick={requestClose} className="h-9 whitespace-nowrap rounded border border-border bg-card px-4 text-[13px] text-text-soft hover:bg-card-hover">
+              取消
+            </button>
             <button onClick={() => onTest(draft)} disabled={testing} className="h-9 whitespace-nowrap rounded border border-border bg-card px-3 text-[13px] text-text-soft hover:bg-card-hover disabled:opacity-50">
               {testing ? "测试中..." : "测试连接"}
             </button>
             <button onClick={() => onSave(draft)} disabled={saving} className="h-9 whitespace-nowrap rounded bg-primary px-4 text-[13px] text-white hover:bg-primary-hover disabled:opacity-50">
               {saving ? "保存中..." : "保存"}
-            </button>
-            <button onClick={onClose} className="h-9 whitespace-nowrap rounded border border-border bg-card px-4 text-[13px] text-text-soft hover:bg-card-hover">
-              取消
             </button>
           </div>
         </div>
@@ -372,12 +422,12 @@ function SettingsModal({
   );
 }
 
-function MessageCard({ item, appLabel, onToggleFavorite }: { item: MessageItem; appLabel?: string; onToggleFavorite: (id: number) => void }) {
+function MessageCard({ item, appLabel, onToggleFavorite, verificationCode }: { item: MessageItem; appLabel?: string; onToggleFavorite: (id: number) => void; verificationCode?: string }) {
   const [expanded, setExpanded] = useState(false);
-  // 密度重排（ui-scan F1-F6）：默认优先级不画条——满屏绿条是噪音，只有
-  // 提升过的优先级（>=4）才值得用颜色占用户一眼；hover 走中性灰非蓝。
+  const [copied, setCopied] = useState(false);
+  // 二轮 S2：优先级条 token 色；默认不画条
   const priority = Number(item.priority || 0);
-  const priorityColor = priority >= 8 ? "bg-red-500" : priority >= 4 ? "bg-blue-500" : "";
+  const priorityColor = priority >= 8 ? "bg-danger-text" : priority >= 4 ? "bg-primary" : "";
   const rawMessage = String(item.message || "");
   const lines = rawMessage.split("\n");
   const maxLines = 4;
@@ -393,27 +443,64 @@ function MessageCard({ item, appLabel, onToggleFavorite }: { item: MessageItem; 
     return `${merged.slice(0, maxChars)}...`;
   }, [rawMessage, overLineLimit]);
   const visibleMessage = expanded || !canCollapse ? rawMessage : collapsedText;
+  // 二轮 S8：正文中的验证码段 mono 高亮+点码复制（码值来自主进程提取，单一真相）
+  const onCopyCode = async () => {
+    if (!verificationCode) return;
+    try {
+      await window.gotifyAPI.writeClipboard(verificationCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {}
+  };
+  const bodyParts = useMemo(() => {
+    if (!verificationCode || !visibleMessage.includes(verificationCode)) return [visibleMessage];
+    const parts = [];
+    let rest = visibleMessage;
+    while (verificationCode && rest.includes(verificationCode)) {
+      const idx = rest.indexOf(verificationCode);
+      if (idx > 0) parts.push({ text: rest.slice(0, idx), code: false });
+      parts.push({ text: verificationCode, code: true });
+      rest = rest.slice(idx + verificationCode.length);
+    }
+    if (rest) parts.push({ text: rest, code: false });
+    return parts;
+  }, [visibleMessage, verificationCode]);
   return (
-    <div className="flex gap-3 border-b border-border-light bg-card px-4 py-2 hover:bg-card-hover">
+    <div className="group flex gap-3 px-4 py-2 hover:bg-layer-hover">
       {priorityColor ? <div className={`w-1 shrink-0 rounded-full ${priorityColor}`}></div> : null}
       <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <div className="truncate text-[15px] font-semibold text-text">{item.title || "无标题"}</div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => item.id && onToggleFavorite(item.id)}
-              className="text-text-muted hover:text-amber-400 focus:outline-none"
-              title={item.favorite ? "取消收藏" : "收藏"}
-            >
-              {item.favorite ? <IconStarFilled className="h-4 w-4 text-amber-400" /> : <IconStarOutline className="h-4 w-4" />}
-            </button>
-            <div className="whitespace-nowrap text-[12px] text-text-muted">{formatDate(item.date)}</div>
+        <div className="flex items-baseline gap-2">
+          <div className="min-w-0 flex-1 truncate">
+            <span className="text-[15px] font-semibold text-text">{item.title || "无标题"}</span>
+            <span className="ml-2 text-[12px] text-text-muted">{appLabel || `应用 #${item.appid || 0}`}</span>
           </div>
+          <button
+            onClick={() => item.id && onToggleFavorite(item.id)}
+            className={`self-center rounded p-0.5 text-text-muted hover:text-star focus:outline-none ${item.favorite ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+            title={item.favorite ? "取消收藏" : "收藏"}
+          >
+            {item.favorite ? <IconStarFilled className="h-4 w-4 text-star" /> : <IconStarOutline className="h-4 w-4" />}
+          </button>
+          <div className="self-center whitespace-nowrap text-[12px] tabular-nums text-text-muted">{timeText(item.date)}</div>
         </div>
-        <div className="mt-0.5 text-[12px] text-text-muted">{appLabel || `应用 #${item.appid || 0}`}</div>
-        <div className="mt-1 text-[13px] text-text-soft whitespace-pre-wrap break-words">{visibleMessage}</div>
+        <div className="mt-0.5 text-[13px] text-text-soft whitespace-pre-wrap break-words">
+          {bodyParts.map((part, index) =>
+            part.code ? (
+              <button
+                key={index}
+                onClick={onCopyCode}
+                title={copied ? "已复制" : "点击复制验证码"}
+                className="mx-0.5 rounded bg-black/[0.05] px-1.5 py-px font-mono text-[13px] tabular-nums text-text hover:bg-black/[0.09] dark:bg-white/[0.08] dark:hover:bg-white/[0.14]"
+              >
+                {copied ? "已复制 ✓" : part.text}
+              </button>
+            ) : (
+              <span key={index}>{part.text}</span>
+            )
+          )}
+        </div>
         {canCollapse ? (
-          <button onClick={() => setExpanded((prev) => !prev)} className="mt-0.5 text-[12px] text-blue-600 hover:text-blue-700">
+          <button onClick={() => setExpanded((prev) => !prev)} className="mt-0.5 text-[12px] text-primary hover:text-primary-hover">
             {expanded ? "收起" : "展开"}
           </button>
         ) : null}
@@ -443,6 +530,8 @@ function App() {
   const [searchText, setSearchText] = useState("");
   const [showFavorites, setShowFavorites] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
+  const [confirmClearArmed, setConfirmClearArmed] = useState(false);
+  const [codeMap, setCodeMap] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     // CP6：.dark 类的挂/摘只听 nativeTheme 下推（单一事实，含手动覆盖的解析结果）
@@ -518,17 +607,11 @@ function App() {
     return () => clearTimeout(timer);
   }, [banner]);
 
-  const statusColor = useMemo(() => {
-    if (status.connected) return "text-success-text";
-    if (status.status.includes("重连")) return "text-amber-500";
-    return "text-red-500";
-  }, [status]);
-
   const dotColor = status.connected
-    ? "bg-green-500 ring-green-200"
+    ? "bg-success"
     : status.status.includes("重连")
-      ? "bg-amber-500 ring-amber-200"
-      : "bg-red-500 ring-red-200";
+      ? "bg-warn"
+      : "bg-danger-text";
 
   const onSave = async (draft: Config) => {
     setSaving(true);
@@ -667,6 +750,40 @@ function App() {
     return result;
   }, [messages, selectedAppId, searchText, showFavorites]);
 
+  // 二轮 S3：日期分组（今天/昨天/更早），列表按组渲染粘性头
+  const groupedMessages = useMemo(() => {
+    const groups: { label: string; items: MessageItem[] }[] = [];
+    for (const item of visibleMessages) {
+      const label = dateGroupLabel(item.date);
+      if (groups.length && groups[groups.length - 1].label === label) {
+        groups[groups.length - 1].items.push(item);
+      } else {
+        groups.push({ label, items: [item] });
+      }
+    }
+    return groups;
+  }, [visibleMessages]);
+
+  // 二轮 S8：验证码提取走主进程单一真相（批量幂等，取前 100 条足够）
+  useEffect(() => {
+    if (!messages.length) {
+      return;
+    }
+    const batch = messages.slice(0, 100).map((m) => ({ id: String(m.id), title: m.title, message: m.message }));
+    window.gotifyAPI
+      .extractCodes(batch.map(({ title, message }) => ({ title, message })))
+      .then((codes) => {
+        const next = new Map<string, string>();
+        batch.forEach((b, i) => {
+          if (codes[i]) {
+            next.set(b.id, codes[i]);
+          }
+        });
+        setCodeMap(next);
+      })
+      .catch(() => {});
+  }, [messages]);
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center text-text-muted">
@@ -677,52 +794,110 @@ function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between bg-chrome px-3 py-2 shadow-sm">
-        <div className="flex items-center gap-4">
+      {/* 二轮 S1/S6：工具栏直透 Mica；分段控件；齿轮/⋯ 上移；删自恋计数 */}
+      <div className="flex items-center gap-2 px-4 py-2.5">
+        <div className="flex rounded-md bg-black/[0.05] p-0.5 dark:bg-white/[0.06]">
           <button
             onClick={() => setShowFavorites(false)}
-            className={`text-[16px] font-bold ${!showFavorites ? "text-text-soft" : "text-text-muted hover:text-text-soft"}`}
+            className={`rounded px-3 py-1 text-[12px] transition-colors ${!showFavorites ? "bg-card text-text shadow-sm" : "text-text-muted hover:text-text-soft"}`}
           >
-            历史消息
+            全部
           </button>
           <button
             onClick={() => setShowFavorites(true)}
-            className={`text-[16px] font-bold ${showFavorites ? "text-text-soft" : "text-text-muted hover:text-text-soft"}`}
+            className={`rounded px-3 py-1 text-[12px] transition-colors ${showFavorites ? "bg-card text-text shadow-sm" : "text-text-muted hover:text-text-soft"}`}
           >
-            我的收藏
+            收藏
           </button>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <input
-              value={searchText}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => setSearchText(event.target.value)}
-              placeholder="搜索消息..."
-              className="h-8 w-40 rounded border border-border bg-input pl-2 pr-7 text-[12px] text-text-soft outline-none focus:border-primary"
-            />
-            {searchText ? (
-              <button onClick={() => setSearchText("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-soft">
-                <IconClearText className="h-4 w-4" />
-              </button>
-            ) : null}
-          </div>
-          <select
-            value={selectedAppId}
-            onChange={(event: ChangeEvent<HTMLSelectElement>) => setSelectedAppId(event.target.value)}
-            className="h-8 rounded border border-border bg-input px-2 text-[12px] text-text-soft"
+        <div className="relative w-44">
+          <IconSearch className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
+          <input
+            value={searchText}
+            onChange={(event: ChangeEvent<HTMLInputElement>) => setSearchText(event.target.value)}
+            placeholder="搜索"
+            className="h-8 w-full rounded-md border border-border bg-input pl-7 pr-6 text-[12px] text-text-soft outline-none focus:border-primary"
+          />
+          {searchText ? (
+            <button onClick={() => setSearchText("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-soft">
+              <IconClearText className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+        </div>
+        <select
+          value={selectedAppId}
+          onChange={(event: ChangeEvent<HTMLSelectElement>) => setSelectedAppId(event.target.value)}
+          className="h-8 rounded-md border border-border bg-input px-2 text-[12px] text-text-soft"
+        >
+          {applicationOptions.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name}
+            </option>
+          ))}
+        </select>
+        <div className="flex-1" />
+        <button
+          onClick={() => setSettingsOpen(true)}
+          title="设置"
+          className="flex h-8 w-8 items-center justify-center rounded text-text-muted hover:bg-black/[0.05] hover:text-text-soft focus:outline-none dark:hover:bg-white/[0.06]"
+        >
+          <IconGear className="h-4 w-4" />
+        </button>
+        <div className="relative">
+          <button
+            onClick={() => {
+              setOverflowOpen((prev) => !prev);
+              setConfirmClearArmed(false);
+            }}
+            title="更多"
+            className="flex h-8 w-8 items-center justify-center rounded text-text-muted hover:bg-black/[0.05] hover:text-text-soft focus:outline-none dark:hover:bg-white/[0.06]"
           >
-            {applicationOptions.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-          <div className="text-[14px] text-text-muted">{visibleMessages.length} 条消息</div>
+            <IconMore className="h-4 w-4" />
+          </button>
+          {overflowOpen ? (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => {
+                  setOverflowOpen(false);
+                  setConfirmClearArmed(false);
+                }}
+              />
+              <div className="absolute right-0 top-full z-50 mt-1.5 min-w-[170px] rounded-md border border-border bg-panel py-1 shadow-lg">
+                <button
+                  onClick={() => {
+                    setOverflowOpen(false);
+                    onToggleConnection();
+                  }}
+                  className="block w-full px-4 py-2 text-left text-[13px] text-text-soft hover:bg-card-hover"
+                >
+                  {status.connected ? "断开连接" : "连接服务器"}
+                </button>
+                <div className="my-1 border-t border-border-light" />
+                <button
+                  onClick={() => {
+                    if (!confirmClearArmed) {
+                      setConfirmClearArmed(true);
+                      return;
+                    }
+                    setConfirmClearArmed(false);
+                    setOverflowOpen(false);
+                    onClearMessages();
+                  }}
+                  disabled={visibleMessages.length === 0 || clearing}
+                  className={`block w-full px-4 py-2 text-left text-[13px] hover:bg-danger-bg disabled:opacity-40 ${confirmClearArmed ? "font-semibold text-danger-text" : "text-danger-text"}`}
+                >
+                  {clearing ? "清空中..." : confirmClearArmed ? "再点一次确认清空" : "清空消息"}
+                </button>
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
-      {banner ? <div className="bg-blue-50 px-3 py-2 text-[14px] text-blue-700">{banner}</div> : null}
-      <div className="flex min-h-0 flex-1 flex-col p-3 pt-0">
-        <div className="scroll-thin min-h-0 flex-1 overflow-y-auto rounded border border-border bg-card">
+      {banner ? <div className="bg-banner-bg px-4 py-1.5 text-[12px] text-banner-text">{banner}</div> : null}
+      <div className="flex min-h-0 flex-1 flex-col px-3 pb-1">
+        {/* 二轮 S1：列表容器=静态 layer 叠层露 Mica，去 border；行透明+hover 填充 */}
+        <div className="scroll-thin min-h-0 flex-1 overflow-y-auto rounded-lg bg-layer">
           {visibleMessages.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 py-16 text-text-muted">
               <IconInbox className="h-10 w-10 text-text-disabled" />
@@ -734,67 +909,27 @@ function App() {
               </div>
             </div>
           ) : (
-            visibleMessages.map((item) => (
-              <MessageCard
-                key={`${item.id}-${item.date}`}
-                item={item}
-                appLabel={getAppLabel(item.appid)}
-                onToggleFavorite={onToggleFavorite}
-              />
+            groupedMessages.map((group) => (
+              <div key={group.label}>
+                <div className="sticky top-0 z-10 bg-layer px-4 py-1 text-[11px] text-text-muted backdrop-blur-sm">{group.label}</div>
+                {group.items.map((item) => (
+                  <MessageCard
+                    key={`${item.id}-${item.date}`}
+                    item={item}
+                    appLabel={getAppLabel(item.appid)}
+                    onToggleFavorite={onToggleFavorite}
+                    verificationCode={codeMap.get(String(item.id))}
+                  />
+                ))}
+              </div>
             ))
           )}
         </div>
-        <div className="mt-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className={`h-2 w-2 rounded-full ring-2 ${dotColor}`}></div>
-            <div className={`text-[14px] font-semibold ${statusColor}`}>{status.status || "未连接"}</div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSettingsOpen(true)}
-              title="设置"
-              className="flex h-9 w-9 items-center justify-center rounded border border-border bg-card text-text-soft hover:bg-card-hover focus:outline-none"
-            >
-              <IconGear className="h-4 w-4" />
-            </button>
-            <div className="relative">
-              <button
-                onClick={() => setOverflowOpen((prev) => !prev)}
-                title="更多"
-                className="flex h-9 w-9 items-center justify-center rounded border border-border bg-card text-text-soft hover:bg-card-hover focus:outline-none"
-              >
-                <IconMore className="h-4 w-4" />
-              </button>
-              {overflowOpen ? (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setOverflowOpen(false)} />
-                  <div className="absolute bottom-full right-0 z-50 mb-2 min-w-[150px] rounded border border-border bg-panel py-1 shadow-lg">
-                    <button
-                      onClick={() => {
-                        setOverflowOpen(false);
-                        onToggleConnection();
-                      }}
-                      className="block w-full px-4 py-2 text-left text-[13px] text-text-soft hover:bg-card-hover"
-                    >
-                      {status.connected ? "断开连接" : "连接服务器"}
-                    </button>
-                    <div className="my-1 border-t border-border-light" />
-                    <button
-                      onClick={() => {
-                        setOverflowOpen(false);
-                        onClearMessages();
-                      }}
-                      disabled={visibleMessages.length === 0 || clearing}
-                      className="block w-full px-4 py-2 text-left text-[13px] text-danger-text hover:bg-danger-bg disabled:opacity-40"
-                    >
-                      {clearing ? "清空中..." : "清空消息"}
-                    </button>
-                  </div>
-                </>
-              ) : null}
-            </div>
-          </div>
-        </div>
+      </div>
+      {/* 二轮 S6：底部只留状态（12px muted+彩点，报警器常开的日子结束了） */}
+      <div className="flex items-center gap-2 px-4 pb-2.5 pt-1">
+        <div className={`h-2 w-2 rounded-full ${dotColor}`}></div>
+        <div className="text-[12px] text-text-muted">{status.status || "未连接"}</div>
       </div>
       {settingsOpen ? (
         <SettingsModal

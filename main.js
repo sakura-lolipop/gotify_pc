@@ -1,6 +1,6 @@
 const path = require("node:path");
 const fs = require("node:fs");
-const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog, nativeTheme } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog, nativeTheme, clipboard } = require("electron");
 const { ConfigStore } = require("./src/services/config-store");
 const { HistoryStore } = require("./src/services/history-store");
 const { GotifyClient, testConnection } = require("./src/services/gotify-client");
@@ -10,7 +10,8 @@ const {
   closeAllNotifications,
   APP_USER_MODEL_ID,
   flushArchivalToasts,
-  reconcileArchivalToasts
+  reconcileArchivalToasts,
+  extractVerificationCode
 } = require("./src/services/notifier");
 
 let mainWindow = null;
@@ -366,6 +367,14 @@ function bindGotifyEvents() {
 function setupIpc() {
   ipcMain.handle("app:getVersion", () => `v${app.getVersion()}`);
   ipcMain.handle("theme:get", () => ({ dark: nativeTheme.shouldUseDarkColors }));
+  // 二轮 S8：验证码提取/剪贴板走主进程（regex 单一真相在 notifier，渲染层不重抄）
+  ipcMain.handle("code:extractBatch", (_, items) =>
+    (Array.isArray(items) ? items : []).map((i) => extractVerificationCode(i?.title, i?.message))
+  );
+  ipcMain.handle("clipboard:writeText", (_, text) => {
+    clipboard.writeText(String(text || ""));
+    return true;
+  });
   ipcMain.handle("config:get", () => configStore.get());
   ipcMain.handle("config:save", async (_, nextConfig) => {
     const saved = configStore.save(nextConfig);

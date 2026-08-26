@@ -132,13 +132,14 @@ function repositionNotifications() {
   });
 }
 
-// 通知卡配色（CP7）：Acrylic 窗体上叠半透明面色透出磨砂桌面，随系统深浅
-// 取 CP6 token 同族色值；卡是生成时定色的短命表面，切换主题不追已发卡。
+// 通知卡配色（CP7 落地，二轮 S4 调参）：Acrylic 窗体上叠半透明面色透出磨砂
+// 桌面，随系统深浅取 CP6 token 同族色值；卡是生成时定色的短命表面。
+// 二轮调参：fill 浅 0.5/深 0.6（0.66 会糊死 Acrylic）、圆角 8（系统制式）、
+// 去实边框改投影（DWM acrylic 自带 luminosity 边）。
 const CARD_PALETTE = {
   dark: {
-    card: "rgba(16, 28, 44, 0.66)",
-    cardHover: "rgba(30, 44, 65, 0.74)",
-    border: "rgba(42, 63, 90, 0.65)",
+    card: "rgba(16, 28, 44, 0.6)",
+    cardHover: "rgba(30, 44, 65, 0.7)",
     title: "#e2e8f0",
     app: "#94a3b8",
     body: "#cbd5e1",
@@ -146,24 +147,19 @@ const CARD_PALETTE = {
     closeHoverBg: "rgba(100, 116, 139, 0.22)",
     closeHover: "#e2e8f0",
     code: "#6ee7b7",
-    codeBg: "rgba(34, 197, 94, 0.16)",
-    okBg: "#22c55e",
-    ok: "#ffffff"
+    codeBg: "rgba(34, 197, 94, 0.18)"
   },
   light: {
-    card: "rgba(255, 255, 255, 0.66)",
-    cardHover: "rgba(250, 250, 250, 0.76)",
-    border: "rgba(224, 224, 224, 0.85)",
+    card: "rgba(255, 255, 255, 0.5)",
+    cardHover: "rgba(250, 250, 250, 0.62)",
     title: "#333333",
     app: "#555555",
     body: "#555555",
     close: "#888888",
-    closeHoverBg: "rgba(136, 136, 136, 0.18)",
+    closeHoverBg: "rgba(136, 136, 136, 0.16)",
     closeHover: "#333333",
     code: "#157347",
-    codeBg: "rgba(34, 197, 94, 0.14)",
-    okBg: "#22c55e",
-    ok: "#ffffff"
+    codeBg: "rgba(34, 197, 94, 0.16)"
   }
 };
 
@@ -181,42 +177,60 @@ function buildCustomNotificationHtml({ iconDataUrl, title, subtitle, body, id, v
   <meta charset="UTF-8" />
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; padding: 0; overflow: hidden; background: transparent; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
-    .card { width: ${NOTIFICATION_WIDTH}px; min-height: ${NOTIFICATION_HEIGHT}px; border-radius: 14px; background: ${c.card}; color: ${c.title}; padding: 12px; display: flex; gap: 10px; border: 1px solid ${c.border}; animation: popup .18s ease-out; cursor: pointer; transition: background 0.2s; }
+    body { margin: 0; padding: 0; overflow: hidden; background: transparent; font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei", sans-serif; }
+    .card { width: ${NOTIFICATION_WIDTH}px; border-radius: 8px; background: ${c.card}; color: ${c.title}; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); animation: popup .18s ease-out; cursor: pointer; transition: background 0.2s; }
     .card:hover { background: ${c.cardHover}; }
     @keyframes popup { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-    .avatar { width: 36px; height: 36px; border-radius: 8px; background: transparent; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+    .meta { display: flex; align-items: center; gap: 8px; }
+    .avatar { width: 20px; height: 20px; border-radius: 5px; overflow: hidden; flex-shrink: 0; }
     .avatar img { width: 100%; height: 100%; object-fit: contain; display: block; }
-    .main { min-width: 0; flex: 1; }
-    .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    .title { font-size: 15px; font-weight: 700; color: ${c.title}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
-    .app-name { font-size: 13px; color: ${c.app}; font-weight: 400; margin-left: 4px; }
-    .close { border: none; background: transparent; color: ${c.close}; font-size: 14px; width: 22px; height: 22px; cursor: pointer; border-radius: 6px; line-height: 22px; flex-shrink: 0; }
+    .app-name { font-size: 12px; color: ${c.app}; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .time { font-size: 11px; color: ${c.close}; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+    .close { border: none; background: transparent; color: ${c.close}; width: 28px; height: 28px; margin: -8px -8px 0 0; cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .close:hover { background: ${c.closeHoverBg}; color: ${c.closeHover}; }
-    .body { margin-top: 6px; font-size: 13px; line-height: 1.35; color: ${c.body}; white-space: pre-line; max-height: 54px; overflow: hidden; }
-    .code-hint { display: ${code ? "inline-block" : "none"}; font-size: 11px; color: ${c.code}; background: ${c.codeBg}; padding: 1px 6px; border-radius: 4px; margin-left: 8px; vertical-align: middle; flex-shrink: 0; }
-    .code-hint.ok { color: ${c.ok}; background: ${c.okBg}; }
+    .close svg { width: 12px; height: 12px; }
+    .title { font-size: 14px; font-weight: 600; color: ${c.title}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .body { font-size: 13px; line-height: 1.4; color: ${c.body}; white-space: pre-line; max-height: 72px; overflow: hidden; }
+    .code { font-family: Consolas, "Cascadia Mono", monospace; font-variant-numeric: tabular-nums; color: ${c.code}; background: ${c.codeBg}; border-radius: 4px; padding: 0 5px; }
+    .code.ok { color: #ffffff; background: #22c55e; }
   </style>
 </head>
 <body>
   <div id="card" class="card">
-    <div class="avatar"><img src="${iconDataUrl}" alt="icon" /></div>
-    <div class="main">
-      <div class="top">
-        <div class="title-container" style="display:flex;align-items:center;min-width:0;flex:1;margin-right:4px">
-          <div class="title">${escapeHtml(title)}<span class="app-name">(${escapeHtml(subtitle)})</span></div>
-          <div class="code-hint">点击复制验证码</div>
-        </div>
-        <button id="close" class="close">✕</button>
-      </div>
-      <div class="body">${escapeHtml(body)}</div>
+    <div class="meta">
+      <div class="avatar"><img src="${iconDataUrl}" alt="icon" /></div>
+      <div class="app-name">${escapeHtml(subtitle)}</div>
+      <div class="time" id="time"></div>
+      <button id="close" class="close" title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 18L18 6M6 6l12 12"/></svg></button>
     </div>
+    <div class="title">${escapeHtml(title)}</div>
+    <div class="body" id="body"></div>
   </div>
   <script>
     const { ipcRenderer } = require("electron");
     const closeButton = document.getElementById("close");
     const card = document.getElementById("card");
+    const bodyEl = document.getElementById("body");
     const verificationCode = "${code}";
+
+    document.getElementById("time").innerText = new Date().toTimeString().slice(0, 5);
+    // 正文渲染：验证码段 mono 高亮（点击整卡复制的交互不变）
+    const raw = ${JSON.stringify(body)};
+    if (verificationCode && raw.includes(verificationCode)) {
+      let rest = raw;
+      while (verificationCode && rest.includes(verificationCode)) {
+        const idx = rest.indexOf(verificationCode);
+        if (idx > 0) bodyEl.appendChild(document.createTextNode(rest.slice(0, idx)));
+        const chip = document.createElement("span");
+        chip.className = "code";
+        chip.innerText = verificationCode;
+        bodyEl.appendChild(chip);
+        rest = rest.slice(idx + verificationCode.length);
+      }
+      if (rest) bodyEl.appendChild(document.createTextNode(rest));
+    } else {
+      bodyEl.innerText = raw;
+    }
 
     closeButton.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -226,11 +240,11 @@ function buildCustomNotificationHtml({ iconDataUrl, title, subtitle, body, id, v
     card.addEventListener("click", () => {
       if (verificationCode) {
         ipcRenderer.send("custom-notification-copy-code", { id: "${id}", code: verificationCode });
-        const hint = document.querySelector(".code-hint");
-        if (hint) {
-          hint.innerText = "复制成功";
-          hint.classList.add("ok");
-        }
+        const chips = document.querySelectorAll(".code");
+        chips.forEach((chip) => {
+          chip.innerText = "已复制";
+          chip.classList.add("ok");
+        });
         setTimeout(() => {
           ipcRenderer.send("custom-notification-close", "${id}");
         }, 1500);
@@ -245,6 +259,16 @@ function buildCustomNotificationHtml({ iconDataUrl, title, subtitle, body, id, v
 
     card.addEventListener("mouseleave", () => {
       ipcRenderer.send("custom-notification-resume-timer", "${id}");
+    });
+
+    // 二轮 S4：动态窗高——load 后多段稳态测量（首帧字体度量未稳会量出假高）
+    const reportHeight = () => {
+      const h = Math.min(140, Math.max(64, Math.ceil(document.body.scrollHeight) + 2));
+      ipcRenderer.send("custom-notification-resize", { id: "${id}", height: h });
+    };
+    window.addEventListener("load", () => {
+      setTimeout(reportHeight, 50);
+      setTimeout(reportHeight, 250);
     });
   </script>
 </body>`;
@@ -277,7 +301,9 @@ function showCustomNotification(message, config) {
     x: workArea.x + workArea.width - NOTIFICATION_WIDTH - 16,
     y: workArea.y + workArea.height - (NOTIFICATION_HEIGHT + NOTIFICATION_GAP) * (activeNotifications.length + 1) - 6,
     frame: false,
-    resizable: false,
+    // 二轮 S4：动态窗高需要（resizable:false 在 Win 上令 setContentSize 无声失效；
+    // frameless+不可聚焦+无最大化钮，resizable 无用户可感知副作用）
+    resizable: true,
     movable: false,
     minimizable: false,
     maximizable: false,
@@ -316,6 +342,15 @@ function showCustomNotification(message, config) {
 function registerCardIpc() {
   ipcMain.on("custom-notification-close", (_, windowId) => {
     closeCustomNotificationWindow(windowId);
+  });
+  // 二轮 S4：卡片内容量完自报高度（钳 64-140），窗随内容不再固定 96
+  ipcMain.on("custom-notification-resize", (_, { id, height } = {}) => {
+    const notification = activeNotifications.find((n) => n.id === id);
+    if (notification?.window && !notification.window.isDestroyed()) {
+      try {
+        notification.window.setContentSize(NOTIFICATION_WIDTH, Math.max(64, Math.min(140, Number(height) || 96)));
+      } catch {}
+    }
   });
   ipcMain.on("custom-notification-copy-code", (_, { id, code }) => {
     // Card closes itself 1.5s after showing the 复制成功 badge; closing
@@ -534,6 +569,7 @@ module.exports = {
   APP_USER_MODEL_ID,
   initNotifier,
   notify,
+  extractVerificationCode,
   closeAllNotifications: () => closeCustomNotificationWindow(),
   flushArchivalToasts,
   reconcileArchivalToasts
