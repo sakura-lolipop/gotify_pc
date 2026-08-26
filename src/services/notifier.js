@@ -1,5 +1,4 @@
 const { BrowserWindow, Notification, clipboard, screen, ipcMain, nativeTheme } = require("electron");
-const { avatarColor, avatarLabel } = require("./app-avatar");
 
 // Single home of the app identity used for Windows notifications. The
 // Start Menu shortcut must carry this exact AUMID as its
@@ -166,7 +165,7 @@ const CARD_PALETTE = {
   }
 };
 
-function buildCustomNotificationHtml({ title, subtitle, body, id, verificationCode, appid }) {
+function buildCustomNotificationHtml({ title, subtitle, body, id, verificationCode }) {
   const escapeHtml = (text) =>
     String(text || "")
       .replaceAll("&", "&amp;")
@@ -174,8 +173,6 @@ function buildCustomNotificationHtml({ title, subtitle, body, id, verificationCo
       .replaceAll(">", "&gt;");
   const code = verificationCode || "";
   const c = nativeTheme.shouldUseDarkColors ? CARD_PALETTE.dark : CARD_PALETTE.light;
-  const avColor = avatarColor(appid);
-  const avLabel = escapeHtml(avatarLabel(subtitle, appid));
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -190,7 +187,6 @@ function buildCustomNotificationHtml({ title, subtitle, body, id, verificationCo
     .card:hover { background: ${c.cardHover}; }
     @keyframes popup { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     .meta { display: flex; align-items: center; gap: 8px; }
-    .avatar { width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #ffffff; }
     .app-name { font-size: 12px; color: ${c.app}; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .time { font-size: 11px; color: ${c.close}; font-variant-numeric: tabular-nums; flex-shrink: 0; }
     .close { border: none; background: transparent; color: ${c.close}; width: 28px; height: 28px; margin: -8px -8px 0 0; cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -208,7 +204,6 @@ function buildCustomNotificationHtml({ title, subtitle, body, id, verificationCo
 <body>
   <div id="card" class="card">
     <div class="meta">
-      <div class="avatar" style="background:${avColor}">${avLabel}</div>
       <div class="app-name">${escapeHtml(subtitle)}</div>
       <div class="time" id="time"></div>
       <button id="close" class="close" title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 18L18 6M6 6l12 12"/></svg></button>

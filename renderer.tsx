@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, Dispatch, SetStateAction } from "react";
 import { createRoot } from "react-dom/client";
 import { IconGear, IconMore, IconStarOutline, IconStarFilled, IconClearText, IconInbox, IconSearch } from "./renderer-icons";
-import { avatarColor, avatarLabel } from "./src/services/app-avatar";
 
 const DEFAULT_CONFIG = {
   serverUrl: "",
@@ -470,13 +469,6 @@ function MessageCard({ item, appLabel, onToggleFavorite, verificationCode }: { i
   return (
     <div className="group flex gap-3 px-4 py-2 hover:bg-layer-hover">
       {priorityColor ? <div className={`w-1 shrink-0 rounded-full ${priorityColor}`}></div> : null}
-      <div
-        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[13px] font-semibold text-white"
-        style={{ backgroundColor: avatarColor(item.appid) }}
-        title={appLabel || `应用 #${item.appid || 0}`}
-      >
-        {avatarLabel(appLabel, item.appid)}
-      </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
           <div className="min-w-0 flex-1 truncate">

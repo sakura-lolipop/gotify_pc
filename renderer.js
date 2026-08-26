@@ -24485,26 +24485,6 @@ var require_jsx_runtime = __commonJS({
   }
 });
 
-// src/services/app-avatar.js
-var require_app_avatar = __commonJS({
-  "src/services/app-avatar.js"(exports, module) {
-    var AVATAR_PALETTE = ["#e11d48", "#ea580c", "#d97706", "#16a34a", "#0891b2", "#2563eb", "#7c3aed", "#db2777"];
-    function avatarColor2(appid) {
-      const id = Number(appid || 0);
-      const hashed = Math.abs(Math.imul(id, 2654435761) >>> 0);
-      return AVATAR_PALETTE[hashed % AVATAR_PALETTE.length];
-    }
-    function avatarLabel2(name, appid) {
-      const trimmed = String(name || "").trim();
-      if (trimmed) {
-        return trimmed[0];
-      }
-      return appid ? String(appid) : "?";
-    }
-    module.exports = { avatarColor: avatarColor2, avatarLabel: avatarLabel2 };
-  }
-});
-
 // renderer.tsx
 var import_react = __toESM(require_react());
 var import_client = __toESM(require_client());
@@ -24583,7 +24563,6 @@ function IconInbox({ className = "h-4 w-4" }) {
 }
 
 // renderer.tsx
-var import_app_avatar = __toESM(require_app_avatar());
 var import_jsx_runtime2 = __toESM(require_jsx_runtime());
 var DEFAULT_CONFIG = {
   serverUrl: "",
@@ -24929,15 +24908,6 @@ function MessageCard({ item, appLabel, onToggleFavorite, verificationCode }) {
   }, [visibleMessage, verificationCode]);
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "group flex gap-3 px-4 py-2 hover:bg-layer-hover", children: [
     priorityColor ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `w-1 shrink-0 rounded-full ${priorityColor}` }) : null,
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-      "div",
-      {
-        className: "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[13px] font-semibold text-white",
-        style: { backgroundColor: (0, import_app_avatar.avatarColor)(item.appid) },
-        title: appLabel || `\u5E94\u7528 #${item.appid || 0}`,
-        children: (0, import_app_avatar.avatarLabel)(appLabel, item.appid)
-      }
-    ),
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "min-w-0 flex-1", children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-baseline gap-2", children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "min-w-0 flex-1 truncate", children: [
