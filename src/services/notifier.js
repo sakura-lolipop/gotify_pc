@@ -339,6 +339,102 @@ function showNativeNotification(message, config) {
 
 let archivalToastLoading = null;
 
+function ensurePowertoast() {
+  if (!archivalToastLoading) {
+    // powertoast v3 is ESM-only with top-level await; dynamic import
+    // keeps this CJS main process loadable.
+    archivalToastLoading = import("powertoast");
+  }
+  return archivalToastLoading;
+}
+
+// L2 owner: every archival toast still meaningfully alive is registered
+// here (uniqueID -> { expireAt, timer }). Timers handle in-process expiry;
+// the quit flush and the startup reconciliation below guarantee no toast
+// outlives the process even when its timer never gets to fire (quit,
+// crash, kill -9, shutdown race).
+const archivalLedger = new Map();
+
+function removeArchivalToast(uniqueID) {
+  ensurePowertoast()
+    .then(({ remove }) => remove(APP_USER_MODEL_ID, uniqueID))
+    .catch((error) => {
+      // Not silent on purpose: a leaked toast stays in the center until
+      // the next quit flush or startup reconciliation sweeps it.
+      console.error(`[ArchivalToast] remove failed for ${uniqueID}:`, error?.message || error);
+    });
+}
+
+function registerArchivalToast(uniqueID, expiryMs) {
+  // Same message re-notified (duplicate delivery): retire the previous
+  // registration instead of letting its timer fire over the new entry.
+  unregisterArchivalToast(uniqueID);
+  const entry = { expireAt: Date.now() + expiryMs, timer: null };
+  entry.timer = setTimeout(() => {
+    unregisterArchivalToast(uniqueID);
+    removeArchivalToast(uniqueID);
+  }, expiryMs);
+  // Must not hold the process open: the quit flush owns exit-time cleanup.
+  entry.timer.unref();
+  archivalLedger.set(uniqueID, entry);
+}
+
+function unregisterArchivalToast(uniqueID) {
+  const entry = archivalLedger.get(uniqueID);
+  if (entry?.timer) {
+    clearTimeout(entry.timer);
+  }
+  archivalLedger.delete(uniqueID);
+}
+
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`timed out after ${ms}ms`)), ms).unref();
+    })
+  ]);
+}
+
+// Quit path (before-quit): sweep the whole center namespace with one
+// Clear() instead of one PowerShell spawn per ledger entry. Best-effort
+// with a timeout guard so a hung PowerShell cannot block quitting forever;
+// anything missed here falls to the next startup reconciliation.
+async function flushArchivalToasts() {
+  if (archivalLedger.size === 0) {
+    return;
+  }
+  const count = archivalLedger.size;
+  for (const uniqueID of [...archivalLedger.keys()]) {
+    unregisterArchivalToast(uniqueID);
+  }
+  try {
+    const { remove } = await ensurePowertoast();
+    await withTimeout(remove(APP_USER_MODEL_ID), 3000);
+    console.log(`[ArchivalToast] quit flush removed ${count} toast(s)`);
+  } catch (error) {
+    console.error("[ArchivalToast] quit flush failed:", error?.message || error);
+  }
+}
+
+// Startup path: a previous run that died without before-quit (crash,
+// kill -9, OS shutdown race) leaves orphaned toasts in the center. The
+// ledger died with that process, so anything under our AUMID at boot is
+// residue by definition — sweep it.
+async function reconcileArchivalToasts() {
+  try {
+    const { getHistory, remove } = await ensurePowertoast();
+    const history = await withTimeout(getHistory(APP_USER_MODEL_ID), 5000);
+    if (!Array.isArray(history) || history.length === 0) {
+      return;
+    }
+    await withTimeout(remove(APP_USER_MODEL_ID), 5000);
+    console.log(`[ArchivalToast] startup reconciliation cleared ${history.length} residue toast(s)`);
+  } catch (error) {
+    console.error("[ArchivalToast] startup reconciliation failed:", error?.message || error);
+  }
+}
+
 // Silent archival twin of the custom card: "卡片管当下，中心管回看"。
 // Every message that pops a card also drops a banner-suppressed (hide:true)
 // native toast into the Windows notification center, then removes it from
@@ -348,13 +444,9 @@ let archivalToastLoading = null;
 // Menu shortcut to carry APP_USER_MODEL_ID; degrades silently to card-only
 // if the toast stack is unavailable.
 async function sendArchivalToast(message, config) {
+  const uniqueID = `gotify-${message.id}`;
   try {
-    if (!archivalToastLoading) {
-      // powertoast v3 is ESM-only with top-level await; dynamic import
-      // keeps this CJS main process loadable.
-      archivalToastLoading = import("powertoast");
-    }
-    const { Toast, remove } = await archivalToastLoading;
+    const { Toast } = await ensurePowertoast();
     const code = extractVerificationCode(message.title, message.message);
     // Retention: manual setting by default; when a verification code's SMS
     // states its own validity window ("N分钟") and smart expiry is on, the
@@ -367,7 +459,6 @@ async function sendArchivalToast(message, config) {
         expiryMs = statedMinutes * 60 * 1000;
       }
     }
-    const uniqueID = `gotify-${message.id}`;
     const toast = new Toast({
       aumid: APP_USER_MODEL_ID,
       uniqueID,
@@ -385,13 +476,17 @@ async function sendArchivalToast(message, config) {
       // remains the only copy interaction.
       // NB: no `expiration` — powertoast 3.0.0 emits `$toast.expiration`
       // which PowerShell rejects (real property is ExpirationTime);
-      // expiry is scheduled via remove() below instead.
+      // expiry is scheduled via the ledger timer instead.
     });
-    setTimeout(() => {
-      remove(APP_USER_MODEL_ID, uniqueID).catch(() => {});
-    }, expiryMs).unref();
+    // Register before show so a quit racing the PowerShell call still
+    // flushes this toast.
+    registerArchivalToast(uniqueID, expiryMs);
     await toast.show({ disablePowershellCore: true });
   } catch (error) {
+    // Show failed: drop the registration (nothing to expire). If the toast
+    // partially made it into the center anyway, the next startup
+    // reconciliation is the backstop.
+    unregisterArchivalToast(uniqueID);
     console.error("[ArchivalToast] failed:", error?.message || error);
     archivalToastLoading = null;
   }
@@ -401,5 +496,7 @@ module.exports = {
   APP_USER_MODEL_ID,
   initNotifier,
   notify,
-  closeAllNotifications: () => closeCustomNotificationWindow()
+  closeAllNotifications: () => closeCustomNotificationWindow(),
+  flushArchivalToasts,
+  reconcileArchivalToasts
 };

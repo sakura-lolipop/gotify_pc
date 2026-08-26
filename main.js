@@ -4,7 +4,14 @@ const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog } = require
 const { ConfigStore } = require("./src/services/config-store");
 const { HistoryStore } = require("./src/services/history-store");
 const { GotifyClient, testConnection } = require("./src/services/gotify-client");
-const { initNotifier, notify, closeAllNotifications, APP_USER_MODEL_ID } = require("./src/services/notifier");
+const {
+  initNotifier,
+  notify,
+  closeAllNotifications,
+  APP_USER_MODEL_ID,
+  flushArchivalToasts,
+  reconcileArchivalToasts
+} = require("./src/services/notifier");
 
 let mainWindow = null;
 let tray = null;
@@ -485,6 +492,22 @@ app.whenReady().then(() => {
       mainWindow?.webContents.send("connection-status", { connected: false, status: "未连接" });
     });
   }
+  // L2 backstop: sweep archival toasts orphaned by a previous run that died
+  // without a clean quit (crash / kill -9 / shutdown race).
+  reconcileArchivalToasts();
+});
+
+// L2: archival toasts must not outlive the process. Defer the actual quit
+// until the notification-center flush finishes; the flag lets the re-issued
+// app.quit() pass through.
+let archivalFlushDone = false;
+app.on("before-quit", (event) => {
+  if (archivalFlushDone) {
+    return;
+  }
+  event.preventDefault();
+  archivalFlushDone = true;
+  flushArchivalToasts().finally(() => app.quit());
 });
 
 app.on("window-all-closed", (event) => {
