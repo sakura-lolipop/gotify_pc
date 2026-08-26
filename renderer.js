@@ -24894,7 +24894,7 @@ function MessageCard({ item, appLabel, onToggleFavorite, verificationCode }) {
     }
   };
   const bodyParts = (0, import_react.useMemo)(() => {
-    if (!verificationCode || !visibleMessage.includes(verificationCode)) return [visibleMessage];
+    if (!verificationCode || !visibleMessage.includes(verificationCode)) return [{ text: visibleMessage, code: false }];
     const parts = [];
     let rest = visibleMessage;
     while (verificationCode && rest.includes(verificationCode)) {

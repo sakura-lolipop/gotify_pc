@@ -453,7 +453,7 @@ function MessageCard({ item, appLabel, onToggleFavorite, verificationCode }: { i
     } catch {}
   };
   const bodyParts = useMemo(() => {
-    if (!verificationCode || !visibleMessage.includes(verificationCode)) return [visibleMessage];
+    if (!verificationCode || !visibleMessage.includes(verificationCode)) return [{ text: visibleMessage, code: false }];
     const parts = [];
     let rest = visibleMessage;
     while (verificationCode && rest.includes(verificationCode)) {
