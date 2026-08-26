@@ -392,14 +392,7 @@ function showCustomNotification(message, config) {
   const subtitle = message.appname || `应用 #${message.appid || 0}`;
   const body = formatNotificationBody(message.message);
   
-  let verificationCode = "";
-  const msgContent = String(message.message || "");
-  if ((title.includes("验证码") || msgContent.includes("验证码")) && /\d{4,8}/.test(msgContent)) {
-    const match = msgContent.match(/\d{4,8}/);
-    if (match) {
-      verificationCode = match[0];
-    }
-  }
+  let verificationCode = extractVerificationCode(title, message.message);
 
   const iconDataUrl = appIcon.resize({ width: 64, height: 64 }).toDataURL();
   const html = buildCustomNotificationHtml({ iconDataUrl, title, subtitle, body, id, verificationCode });
@@ -442,6 +435,67 @@ function showCustomNotification(message, config) {
   }
 
   activeNotifications.push(notificationData);
+}
+
+function extractVerificationCode(title, message) {
+  const titleText = String(title || "");
+  const msgContent = String(message || "");
+  if ((titleText.includes("验证码") || msgContent.includes("验证码")) && /\d{4,8}/.test(msgContent)) {
+    const match = msgContent.match(/\d{4,8}/);
+    if (match) {
+      return match[0];
+    }
+  }
+  return "";
+}
+
+let archivalToastLoading = null;
+
+// Silent archival twin of the custom card: "卡片管当下，中心管回看"。
+// Every message that pops a card also drops a banner-suppressed (hide:true)
+// native toast into the Windows notification center. Verification-code
+// toasts carry a copy button whose label embeds the code and expire when
+// the code would be dead anyway (10 min); everything else expires after
+// 1 h so the center never accumulates corpses. Requires the Start Menu
+// shortcut to carry APP_USER_MODEL_ID; degrades silently to card-only if
+// the toast stack is unavailable.
+async function sendArchivalToast(message) {
+  try {
+    if (!archivalToastLoading) {
+      // powertoast v3 is ESM-only with top-level await; dynamic import
+      // keeps this CJS main process loadable.
+      archivalToastLoading = import("powertoast");
+    }
+    const { Toast, remove } = await archivalToastLoading;
+    const code = extractVerificationCode(message.title, message.message);
+    const uniqueID = `gotify-${message.id}`;
+    const toast = new Toast({
+      aumid: APP_USER_MODEL_ID,
+      uniqueID,
+      title: message.title || "Gotify 消息",
+      message: formatNotificationBody(message.message),
+      attribution: message.appname || undefined,
+      hide: true,
+      silent: true
+      // NB: no `button` — event callbacks only work on the pwsh ≥7.1
+      // harness, and toasts raised through that harness never reach the
+      // notification center on this Windows build (26200): banner shows,
+      // nothing archived. The Windows PowerShell 5.1 harness (forced via
+      // disablePowershellCore below) archives reliably but has no event
+      // feedback, so center buttons would be inert — the custom card
+      // remains the only copy interaction.
+      // NB: no `expiration` — powertoast 3.0.0 emits `$toast.expiration`
+      // which PowerShell rejects (real property is ExpirationTime);
+      // expiry is scheduled via remove() below instead.
+    });
+    setTimeout(() => {
+      remove(APP_USER_MODEL_ID, uniqueID).catch(() => {});
+    }, code ? 10 * 60 * 1000 : 60 * 60 * 1000).unref();
+    await toast.show({ disablePowershellCore: true });
+  } catch (error) {
+    console.error("[ArchivalToast] failed:", error?.message || error);
+    archivalToastLoading = null;
+  }
 }
 
 function formatNotificationBody(rawText) {
@@ -567,14 +621,9 @@ function bindGotifyEvents() {
 
     if (config.showCustomNotification) {
       showCustomNotification(enriched, config);
+      sendArchivalToast(enriched);
     } else {
-      let verificationCode = "";
-      if (((enriched.title && enriched.title.includes("验证码")) || (enriched.message && enriched.message.includes("验证码"))) && /\d{4,8}/.test(enriched.message)) {
-        const match = enriched.message.match(/\d{4,8}/);
-        if (match) {
-          verificationCode = match[0];
-        }
-      }
+      const verificationCode = extractVerificationCode(enriched.title, enriched.message);
 
       const notification = new Notification({
         title: enriched.title || "Gotify 消息",

@@ -31,6 +31,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "powertoast": "^3.0.0",
     "ws": "^8.18.0"
   },
   "build": {
