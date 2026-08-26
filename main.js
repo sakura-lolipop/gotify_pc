@@ -499,7 +499,46 @@ async function forwardToBark(message, config) {
   }
 }
 
+let catchUpRunning = false;
+
+// Missed-message catch-up (design borrowed from gotify-tray): after a WS
+// reconnect, pull recent messages via REST and replay any with id greater
+// than the newest one already in local history through the normal message
+// pipeline. Complements the WS heartbeat: the heartbeat detects a dead
+// socket fast, this recovers whatever was pushed while it was dead.
+// First connect after start() intentionally skips (launch-time history is
+// loaded elsewhere and would flood the replay).
+async function catchUpMissedMessages() {
+  if (catchUpRunning) {
+    return;
+  }
+  catchUpRunning = true;
+  try {
+    const lastId = historyStore.getMaxId();
+    const recent = await gotifyClient.fetchRecentMessages(50);
+    const missed = recent.filter((m) => Number(m?.id || 0) > lastId);
+    if (missed.length === 0) {
+      return;
+    }
+    missed.reverse(); // server returns newest first; replay oldest first
+    console.log(`[CatchUp] replaying ${missed.length} missed message(s) after id ${lastId}`);
+    for (const message of missed) {
+      gotifyClient.processRestMessage(message);
+    }
+    if (missed.length >= 50) {
+      console.warn("[CatchUp] hit the 50-message fetch limit; older missed messages were not replayed");
+    }
+  } catch (error) {
+    console.error("[CatchUp] failed:", error?.message || error);
+  } finally {
+    catchUpRunning = false;
+  }
+}
+
 function bindGotifyEvents() {
+  gotifyClient.on("reconnected", () => {
+    catchUpMissedMessages();
+  });
   gotifyClient.on("status", (payload) => {
     currentConnectionStatus = payload;
     mainWindow?.webContents.send("connection-status", payload);

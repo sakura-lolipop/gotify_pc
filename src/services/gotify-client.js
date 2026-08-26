@@ -7,6 +7,7 @@ class GotifyClient extends EventEmitter {
     this.ws = null;
     this.reconnectTimer = null;
     this.connected = false;
+    this.hasConnectedOnce = false;
     this.config = null;
     this.reconnectDelay = 5000;
     this.intentionalDisconnect = false;
@@ -37,6 +38,7 @@ class GotifyClient extends EventEmitter {
     this.debugEnabled = Boolean(config?.debugLogs) || String(process.env.GOTIFY_DEBUG_WS || "").trim() === "1";
     this.intentionalDisconnect = false;
     this.lastErrorMessage = "";
+    this.hasConnectedOnce = false;
     this.debug("info", "start", { server: this.maskServer(this.config.serverUrl) });
     this.connect();
   }
@@ -76,7 +78,12 @@ class GotifyClient extends EventEmitter {
           return;
         }
         this.debug("info", "open", { socketId });
+        const isReconnect = this.hasConnectedOnce;
+        this.hasConnectedOnce = true;
         this.setConnected(true, "已连接");
+        if (isReconnect) {
+          this.emit("reconnected");
+        }
         this.reconnectDelay = 5000;
         this.lastErrorMessage = "";
         this.startHeartbeat();
@@ -139,6 +146,40 @@ class GotifyClient extends EventEmitter {
       return `${normalized.replace("http://", "ws://")}/stream?token=${encodeURIComponent(token)}`;
     }
     return `ws://${normalized}/stream?token=${encodeURIComponent(token)}`;
+  }
+
+  // REST catch-up source (design borrowed from gotify-tray). GET /message
+  // with X-Gotify-Key auth returns {"paging": ..., "messages": [...]} in
+  // newest-first order; callers filter/replay what they missed.
+  async fetchRecentMessages(limit = 50) {
+    const normalized = this.config.serverUrl.trim().replace(/\/+$/, "");
+    const url = `${normalized}/message?limit=${limit}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "X-Gotify-Key": this.config.clientToken
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    }
+    const data = await response.json();
+    return Array.isArray(data?.messages) ? data.messages : [];
+  }
+
+  // Re-entry point for catch-up messages: runs the same normalize → dedup →
+  // emit pipeline as WS pushes, so a message delivered over WS while the
+  // catch-up fetch was in flight is dropped here instead of duplicating the
+  // notification card.
+  processRestMessage(message) {
+    const normalized = this.normalizeMessage(message);
+    if (this.isDuplicate(normalized)) {
+      this.debug("warn", "duplicate_drop", { source: "rest", id: normalized.id });
+      return false;
+    }
+    this.debug("info", "message", { source: "rest", id: normalized.id, title: normalized.title });
+    this.emit("message", normalized);
+    return true;
   }
 
   setConnected(next, status) {

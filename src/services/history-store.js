@@ -29,6 +29,17 @@ class HistoryStore {
     return [...this.messages];
   }
 
+  getMaxId() {
+    let max = 0;
+    for (const item of this.messages) {
+      const id = Number(item?.id);
+      if (Number.isFinite(id) && id > max) {
+        max = id;
+      }
+    }
+    return max;
+  }
+
   add(message) {
     const exists = this.messages.some((item) => Number(item.id) === Number(message.id) && Number(message.id) > 0);
     if (exists) {
