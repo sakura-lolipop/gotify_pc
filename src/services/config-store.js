@@ -11,6 +11,7 @@ const DEFAULT_CONFIG = {
   notificationDuration: 5000,
   archiveExpiryMinutes: 60,
   codeSmartExpiry: true,
+  theme: "system",
   minimizeToTray: true,
   showMainWindowOnStartup: true,
   autoLaunch: false,

@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("gotifyAPI", {
   getAppVersion: () => ipcRenderer.invoke("app:getVersion"),
+  getThemeState: () => ipcRenderer.invoke("theme:get"),
   getConfig: () => ipcRenderer.invoke("config:get"),
   saveConfig: (config) => ipcRenderer.invoke("config:save", config),
   getMessages: () => ipcRenderer.invoke("messages:get"),
@@ -19,6 +20,11 @@ contextBridge.exposeInMainWorld("gotifyAPI", {
     const listener = (_, payload) => callback(payload);
     ipcRenderer.on("connection-status", listener);
     return () => ipcRenderer.removeListener("connection-status", listener);
+  },
+  onThemeUpdated: (callback) => {
+    const listener = (_, payload) => callback(payload);
+    ipcRenderer.on("theme-updated", listener);
+    return () => ipcRenderer.removeListener("theme-updated", listener);
   },
   onNewMessage: (callback) => {
     const listener = (_, payload) => callback(payload);

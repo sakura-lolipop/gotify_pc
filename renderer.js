@@ -24499,6 +24499,7 @@ var DEFAULT_CONFIG = {
   notificationDuration: 5e3,
   archiveExpiryMinutes: 60,
   codeSmartExpiry: true,
+  theme: "system",
   minimizeToTray: true,
   showMainWindowOnStartup: true,
   autoLaunch: false,
@@ -24619,8 +24620,8 @@ function SettingsModal({
   }
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-3", children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "absolute inset-0 bg-black/35", onClick: onClose }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "relative flex w-[700px] max-h-[86vh] max-w-[92vw] flex-col overflow-hidden rounded-lg bg-white shadow-2xl", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "border-b px-5 py-3 text-[28px] font-bold text-slate-800", children: "Gotify \u5BA2\u6237\u7AEF\u8BBE\u7F6E" }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "relative flex w-[700px] max-h-[86vh] max-w-[92vw] flex-col overflow-hidden rounded-lg bg-panel shadow-2xl", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "border-b px-5 py-3 text-[28px] font-bold text-text", children: "Gotify \u5BA2\u6237\u7AEF\u8BBE\u7F6E" }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 text-[14px]", children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-3", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "w-32 text-[14px] font-bold whitespace-nowrap", children: "\u670D\u52A1\u5668\u5730\u5740:" }),
@@ -24630,7 +24631,7 @@ function SettingsModal({
               value: config.serverUrl,
               onChange: onServerUrlChange,
               placeholder: "https://your-gotify.example.com",
-              className: "h-9 flex-1 rounded border px-3 text-[14px] outline-none focus:border-blue-500"
+              className: "h-9 flex-1 rounded border border-border bg-input text-text px-3 text-[14px] outline-none focus:border-primary"
             }
           )
         ] }),
@@ -24643,12 +24644,12 @@ function SettingsModal({
               value: config.clientToken,
               onChange: onTokenChange,
               placeholder: "Client Token",
-              className: "h-9 flex-1 rounded border px-3 text-[14px] outline-none focus:border-blue-500"
+              className: "h-9 flex-1 rounded border border-border bg-input text-text px-3 text-[14px] outline-none focus:border-primary"
             }
           ),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => setShowToken((v) => !v), className: "h-9 rounded border px-3 text-[13px]", children: showToken ? "\u9690\u85CF" : "\u663E\u793A" })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded border bg-slate-50 p-3", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded border bg-card-hover-alt p-3", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mb-2 text-[15px] font-bold", children: "\u901A\u77E5\u8BBE\u7F6E" }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "grid grid-cols-2 gap-y-2 text-[14px]", children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "flex items-center gap-2", children: [
@@ -24668,7 +24669,7 @@ function SettingsModal({
               "\u901A\u77E5\u81EA\u52A8\u6D88\u5931"
             ] })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-2", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "flex items-center gap-2 text-red-600 text-[14px]", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-2", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "flex items-center gap-2 text-danger-text text-[14px]", children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "checkbox", checked: config.notificationNeverClose, onChange: onNeverCloseChange }),
             "\u6C38\u4E0D\u81EA\u52A8\u5173\u95ED"
           ] }) }),
@@ -24683,10 +24684,10 @@ function SettingsModal({
                 min: 1e3,
                 step: 1e3,
                 disabled: !config.notificationAutoHide || config.notificationNeverClose,
-                className: "h-9 w-28 rounded border px-2 text-[14px] disabled:bg-slate-100"
+                className: "h-9 w-28 rounded border border-border bg-input text-text px-2 text-[14px] disabled:bg-card-hover"
               }
             ),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-slate-500 whitespace-nowrap", children: "(\u4EC5\u5728\u81EA\u52A8\u6D88\u5931\u542F\u7528\u65F6)" })
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-text-muted whitespace-nowrap", children: "(\u4EC5\u5728\u81EA\u52A8\u6D88\u5931\u542F\u7528\u65F6)" })
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mt-2 flex items-center gap-2 text-[14px]", children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "whitespace-nowrap", children: "\u901A\u77E5\u4E2D\u5FC3\u5B58\u6863(\u5206\u949F):" }),
@@ -24698,23 +24699,23 @@ function SettingsModal({
                 onChange: onArchiveExpiryChange,
                 min: 1,
                 step: 5,
-                className: "h-9 w-28 rounded border px-2 text-[14px]"
+                className: "h-9 w-28 rounded border border-border bg-input text-text px-2 text-[14px]"
               }
             ),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-slate-500 whitespace-nowrap", children: "(\u6BCF\u6761\u6D88\u606F\u5728\u7CFB\u7EDF\u901A\u77E5\u4E2D\u5FC3\u7684\u4FDD\u7559\u65F6\u957F)" })
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-text-muted whitespace-nowrap", children: "(\u6BCF\u6761\u6D88\u606F\u5728\u7CFB\u7EDF\u901A\u77E5\u4E2D\u5FC3\u7684\u4FDD\u7559\u65F6\u957F)" })
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mt-2", children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "flex items-center gap-2 text-[14px]", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "checkbox", checked: config.codeSmartExpiry, onChange: onCodeSmartExpiryChange }),
               "\u9A8C\u8BC1\u7801\u6309\u77ED\u4FE1\u6709\u6548\u671F\u5B58\u6863"
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-1 text-[12px] text-slate-400", children: "\u52FE\u9009\u540E\u9A8C\u8BC1\u7801\u6D88\u606F\u6309\u77ED\u4FE1\u4E2D\u7684\u300CN\u5206\u949F\u300D\u5B58\u6863\uFF0C\u8BC6\u522B\u4E0D\u5230\u65F6\u56DE\u843D\u5230\u4E0A\u65B9\u65F6\u957F" })
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-1 text-[12px] text-text-muted", children: "\u52FE\u9009\u540E\u9A8C\u8BC1\u7801\u6D88\u606F\u6309\u77ED\u4FE1\u4E2D\u7684\u300CN\u5206\u949F\u300D\u5B58\u6863\uFF0C\u8BC6\u522B\u4E0D\u5230\u65F6\u56DE\u843D\u5230\u4E0A\u65B9\u65F6\u957F" })
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mt-3", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mb-1 text-[12px] font-semibold text-slate-600", children: "\u5C4F\u853D\u5F39\u7A97\u5206\u7EC4:" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "max-h-24 overflow-y-auto rounded border bg-white p-2", children: applications.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[12px] text-slate-400", children: "\u6682\u65E0\u5E94\u7528\u5206\u7EC4\uFF0C\u8BF7\u5148\u8FDE\u63A5\u670D\u52A1\u5668" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "grid grid-cols-2 gap-2", children: applications.map((app) => {
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mb-1 text-[12px] font-semibold text-text-soft", children: "\u5C4F\u853D\u5F39\u7A97\u5206\u7EC4:" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "max-h-24 overflow-y-auto rounded border bg-input p-2", children: applications.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[12px] text-text-muted", children: "\u6682\u65E0\u5E94\u7528\u5206\u7EC4\uFF0C\u8BF7\u5148\u8FDE\u63A5\u670D\u52A1\u5668" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "grid grid-cols-2 gap-2", children: applications.map((app) => {
               var _a;
-              return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "flex items-center gap-2 text-[12px] text-slate-700", children: [
+              return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "flex items-center gap-2 text-[12px] text-text-soft", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                   "input",
                   {
@@ -24726,26 +24727,26 @@ function SettingsModal({
                 app.name
               ] }, app.id);
             }) }) }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-1 text-[12px] text-slate-400", children: "\u9009\u4E2D\u7684\u5206\u7EC4\u5C06\u4E0D\u518D\u663E\u793A\u5F39\u7A97\u63D0\u9192" })
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-1 text-[12px] text-text-muted", children: "\u9009\u4E2D\u7684\u5206\u7EC4\u5C06\u4E0D\u518D\u663E\u793A\u5F39\u7A97\u63D0\u9192" })
           ] })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded border bg-slate-50 p-3", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded border bg-card-hover-alt p-3", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mb-2 text-[15px] font-bold", children: "Bark \u6D88\u606F\u8F6C\u53D1" }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[13px] text-slate-600", children: "\u5C06\u6536\u5230\u7684\u6D88\u606F\u8F6C\u53D1\u5230 iOS Bark App" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[13px] text-text-soft", children: "\u5C06\u6536\u5230\u7684\u6D88\u606F\u8F6C\u53D1\u5230 iOS Bark App" }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
               "input",
               {
                 value: config.barkServerUrl || "",
                 onChange: onBarkUrlChange,
                 placeholder: "https://api.day.app/YOUR_KEY",
-                className: "h-9 w-full rounded border px-2 text-[13px] outline-none focus:border-blue-500"
+                className: "h-9 w-full rounded border border-border bg-input text-text px-2 text-[13px] outline-none focus:border-primary"
               }
             ),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[12px] font-semibold text-slate-600", children: "\u9009\u62E9\u8981\u8F6C\u53D1\u7684\u5E94\u7528\u5206\u7EC4:" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "max-h-24 overflow-y-auto rounded border bg-white p-2", children: applications.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[12px] text-slate-400", children: "\u6682\u65E0\u5E94\u7528\u5206\u7EC4\uFF0C\u8BF7\u5148\u8FDE\u63A5\u670D\u52A1\u5668" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "grid grid-cols-2 gap-2", children: applications.map((app) => {
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[12px] font-semibold text-text-soft", children: "\u9009\u62E9\u8981\u8F6C\u53D1\u7684\u5E94\u7528\u5206\u7EC4:" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "max-h-24 overflow-y-auto rounded border bg-input p-2", children: applications.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[12px] text-text-muted", children: "\u6682\u65E0\u5E94\u7528\u5206\u7EC4\uFF0C\u8BF7\u5148\u8FDE\u63A5\u670D\u52A1\u5668" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "grid grid-cols-2 gap-2", children: applications.map((app) => {
               var _a;
-              return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "flex items-center gap-2 text-[12px] text-slate-700", children: [
+              return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "flex items-center gap-2 text-[12px] text-text-soft", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                   "input",
                   {
@@ -24759,26 +24760,26 @@ function SettingsModal({
             }) }) })
           ] })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded border bg-slate-50 p-3", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded border bg-card-hover-alt p-3", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mb-2 text-[15px] font-bold", children: "\u6570\u636E\u5B58\u50A8" }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[13px] text-slate-600", children: "\u5F53\u524D\u6570\u636E\u5B58\u50A8\u8DEF\u5F84" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[13px] text-text-soft", children: "\u5F53\u524D\u6570\u636E\u5B58\u50A8\u8DEF\u5F84" }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex-1 rounded border bg-white px-2 py-1.5 text-[12px] text-slate-600 break-all", children: storagePath || "-" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex-1 rounded border border-border bg-input px-2 py-1.5 text-[12px] text-text-soft break-all", children: storagePath || "-" }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                 "button",
                 {
                   onClick: onOpenStoragePath,
                   disabled: !storagePath,
-                  className: "h-8 whitespace-nowrap rounded border border-blue-500 px-3 text-[12px] text-blue-600 hover:bg-blue-50 disabled:opacity-50 disabled:hover:bg-transparent",
+                  className: "h-8 whitespace-nowrap rounded border border-primary px-3 text-[12px] text-primary hover:bg-card-hover disabled:opacity-50 disabled:hover:bg-transparent",
                   children: "\u6253\u5F00\u76EE\u5F55"
                 }
               )
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[12px] text-slate-400", children: "\u5982\u9700\u8FC1\u79FB\u6570\u636E\uFF0C\u8BF7\u624B\u52A8\u590D\u5236\u6587\u4EF6\u5230\u65B0\u76EE\u5F55" })
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[12px] text-text-muted", children: "\u5982\u9700\u8FC1\u79FB\u6570\u636E\uFF0C\u8BF7\u624B\u52A8\u590D\u5236\u6587\u4EF6\u5230\u65B0\u76EE\u5F55" })
           ] })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded border bg-slate-50 p-3", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded border bg-card-hover-alt p-3", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mb-2 text-[15px] font-bold", children: "\u5176\u4ED6\u8BBE\u7F6E" }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "space-y-1.5 text-[14px]", children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "flex items-center gap-2", children: [
@@ -24794,17 +24795,17 @@ function SettingsModal({
               "\u542F\u52A8\u65F6\u663E\u793A\u4E3B\u754C\u9762"
             ] })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mt-3 border-t border-slate-200 pt-2 text-[13px] text-slate-500", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mt-3 border-t border-border pt-2 text-[13px] text-text-muted", children: [
             "\u7248\u672C\u53F7: ",
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "font-mono text-slate-700", children: appVersion || "-" })
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "font-mono text-text-soft", children: appVersion || "-" })
           ] })
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "shrink-0 flex items-center justify-between gap-3 border-t bg-slate-50 px-5 py-3", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `flex-1 min-w-0 break-words text-[14px] font-semibold leading-tight ${(notice == null ? void 0 : notice.type) === "error" ? "text-red-600" : "text-green-600"}`, children: (notice == null ? void 0 : notice.text) || "" }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "shrink-0 flex items-center justify-between gap-3 border-t bg-card-hover-alt px-5 py-3", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `flex-1 min-w-0 break-words text-[14px] font-semibold leading-tight ${(notice == null ? void 0 : notice.type) === "error" ? "text-danger-text" : "text-success-text"}`, children: (notice == null ? void 0 : notice.text) || "" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex shrink-0 items-center gap-2", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: onTest, disabled: testing, className: "h-9 whitespace-nowrap rounded border px-3 text-[13px] disabled:opacity-50", children: testing ? "\u6D4B\u8BD5\u4E2D..." : "\u6D4B\u8BD5\u8FDE\u63A5" }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: onSave, disabled: saving, className: "h-9 whitespace-nowrap rounded bg-blue-600 px-3 text-[13px] text-white disabled:opacity-50", children: saving ? "\u4FDD\u5B58\u4E2D..." : "\u4FDD\u5B58" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: onSave, disabled: saving, className: "h-9 whitespace-nowrap rounded bg-primary px-3 text-[13px] text-white hover:bg-primary-hover disabled:opacity-50", children: saving ? "\u4FDD\u5B58\u4E2D..." : "\u4FDD\u5B58" }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: onClose, className: "h-9 whitespace-nowrap rounded border px-3 text-[13px]", children: "\u53D6\u6D88" })
         ] })
       ] })
@@ -24830,17 +24831,17 @@ function MessageCard({ item, appLabel, onToggleFavorite }) {
     return `${merged.slice(0, maxChars)}...`;
   }, [rawMessage, overLineLimit]);
   const visibleMessage = expanded || !canCollapse ? rawMessage : collapsedText;
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex gap-3 border-b bg-white px-4 py-2 hover:bg-slate-50", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex gap-3 border-b border-border-light bg-card px-4 py-2 hover:bg-card-hover", children: [
     priorityColor ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `w-1 shrink-0 rounded-full ${priorityColor}` }) : null,
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "min-w-0 flex-1", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-start justify-between gap-2", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "truncate text-[15px] font-semibold text-slate-800", children: item.title || "\u65E0\u6807\u9898" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "truncate text-[15px] font-semibold text-text", children: item.title || "\u65E0\u6807\u9898" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-2", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
             "button",
             {
               onClick: () => item.id && onToggleFavorite(item.id),
-              className: "text-slate-400 hover:text-amber-400 focus:outline-none",
+              className: "text-text-muted hover:text-amber-400 focus:outline-none",
               title: item.favorite ? "\u53D6\u6D88\u6536\u85CF" : "\u6536\u85CF",
               children: item.favorite ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className: "h-4 w-4 text-amber-400", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                 "path",
@@ -24859,11 +24860,11 @@ function MessageCard({ item, appLabel, onToggleFavorite }) {
               ) })
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "whitespace-nowrap text-[12px] text-slate-400", children: formatDate(item.date) })
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "whitespace-nowrap text-[12px] text-text-muted", children: formatDate(item.date) })
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-0.5 text-[12px] text-slate-400", children: appLabel || `\u5E94\u7528 #${item.appid || 0}` }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-1 text-[13px] text-slate-700 whitespace-pre-wrap break-words", children: visibleMessage }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-0.5 text-[12px] text-text-muted", children: appLabel || `\u5E94\u7528 #${item.appid || 0}` }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-1 text-[13px] text-text-soft whitespace-pre-wrap break-words", children: visibleMessage }),
       canCollapse ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => setExpanded((prev) => !prev), className: "mt-0.5 text-[12px] text-blue-600 hover:text-blue-700", children: expanded ? "\u6536\u8D77" : "\u5C55\u5F00" }) : null
     ] })
   ] });
@@ -24888,6 +24889,16 @@ function App() {
   const [selectedAppId, setSelectedAppId] = (0, import_react.useState)("all");
   const [searchText, setSearchText] = (0, import_react.useState)("");
   const [showFavorites, setShowFavorites] = (0, import_react.useState)(false);
+  (0, import_react.useEffect)(() => {
+    const apply = (dark) => document.documentElement.classList.toggle("dark", Boolean(dark));
+    let unsubTheme = null;
+    window.gotifyAPI.getThemeState().then((state) => apply(Boolean(state == null ? void 0 : state.dark))).catch(() => {
+    });
+    unsubTheme = window.gotifyAPI.onThemeUpdated((payload) => apply(Boolean(payload == null ? void 0 : payload.dark)));
+    return () => {
+      if (typeof unsubTheme === "function") unsubTheme();
+    };
+  }, []);
   (0, import_react.useEffect)(() => {
     let unsubStatus = null;
     let unsubMessage = null;
@@ -24949,7 +24960,7 @@ function App() {
     return () => clearTimeout(timer);
   }, [banner]);
   const statusColor = (0, import_react.useMemo)(() => {
-    if (status.connected) return "text-green-600";
+    if (status.connected) return "text-success-text";
     if (status.status.includes("\u91CD\u8FDE")) return "text-amber-500";
     return "text-red-500";
   }, [status]);
@@ -25080,16 +25091,16 @@ function App() {
     return result;
   }, [messages, selectedAppId, searchText, showFavorites]);
   if (loading) {
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex h-full items-center justify-center text-slate-500", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[20px]", children: "\u52A0\u8F7D\u4E2D..." }) });
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex h-full items-center justify-center text-text-muted", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[20px]", children: "\u52A0\u8F7D\u4E2D..." }) });
   }
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex h-full flex-col", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center justify-between bg-white/70 px-3 py-2 shadow-sm", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center justify-between bg-chrome px-3 py-2 shadow-sm", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-4", children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
           "button",
           {
             onClick: () => setShowFavorites(false),
-            className: `text-[16px] font-bold ${!showFavorites ? "text-slate-700" : "text-slate-400 hover:text-slate-600"}`,
+            className: `text-[16px] font-bold ${!showFavorites ? "text-text-soft" : "text-text-muted hover:text-text-soft"}`,
             children: "\u5386\u53F2\u6D88\u606F"
           }
         ),
@@ -25097,7 +25108,7 @@ function App() {
           "button",
           {
             onClick: () => setShowFavorites(true),
-            className: `text-[16px] font-bold ${showFavorites ? "text-slate-700" : "text-slate-400 hover:text-slate-600"}`,
+            className: `text-[16px] font-bold ${showFavorites ? "text-text-soft" : "text-text-muted hover:text-text-soft"}`,
             children: "\u6211\u7684\u6536\u85CF"
           }
         )
@@ -25110,10 +25121,10 @@ function App() {
               value: searchText,
               onChange: (event) => setSearchText(event.target.value),
               placeholder: "\u641C\u7D22\u6D88\u606F...",
-              className: "h-8 w-40 rounded border border-slate-200 bg-white pl-2 pr-7 text-[12px] text-slate-600 outline-none focus:border-blue-500"
+              className: "h-8 w-40 rounded border border-border bg-input pl-2 pr-7 text-[12px] text-text-soft outline-none focus:border-primary"
             }
           ),
-          searchText ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => setSearchText(""), className: "absolute right-1 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 20 20", fill: "currentColor", className: "h-4 w-4", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          searchText ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => setSearchText(""), className: "absolute right-1 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-soft", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 20 20", fill: "currentColor", className: "h-4 w-4", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
             "path",
             {
               fillRule: "evenodd",
@@ -25127,11 +25138,11 @@ function App() {
           {
             value: selectedAppId,
             onChange: (event) => setSelectedAppId(event.target.value),
-            className: "h-8 rounded border border-slate-200 bg-white px-2 text-[12px] text-slate-600",
+            className: "h-8 rounded border border-border bg-input px-2 text-[12px] text-text-soft",
             children: applicationOptions.map((item) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: item.id, children: item.name }, item.id))
           }
         ),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[14px] text-slate-500", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[14px] text-text-muted", children: [
           visibleMessages.length,
           " \u6761\u6D88\u606F"
         ] })
@@ -25139,8 +25150,8 @@ function App() {
     ] }),
     banner ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "bg-blue-50 px-3 py-2 text-[14px] text-blue-700", children: banner }) : null,
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex min-h-0 flex-1 flex-col p-3 pt-0", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "scroll-thin min-h-0 flex-1 overflow-y-auto rounded border bg-white", children: visibleMessages.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex h-full flex-col items-center justify-center gap-2 py-16 text-slate-400", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.2, stroke: "currentColor", className: "h-10 w-10 text-slate-300", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "scroll-thin min-h-0 flex-1 overflow-y-auto rounded border border-border bg-card", children: visibleMessages.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex h-full flex-col items-center justify-center gap-2 py-16 text-text-muted", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.2, stroke: "currentColor", className: "h-10 w-10 text-text-disabled", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
           "path",
           {
             strokeLinecap: "round",
@@ -25149,7 +25160,7 @@ function App() {
           }
         ) }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[14px]", children: showFavorites ? "\u6682\u65E0\u6536\u85CF\u6D88\u606F" : searchText ? `\u6CA1\u6709\u5339\u914D\u300C${searchText}\u300D\u7684\u6D88\u606F` : "\u6682\u65E0\u6D88\u606F" }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[12px] text-slate-300", children: showFavorites ? "\u70B9\u51FB\u6D88\u606F\u53F3\u4FA7\u661F\u6807\u5373\u53EF\u6536\u85CF" : searchText ? "\u8BD5\u8BD5\u6E05\u7A7A\u641C\u7D22\u8BCD\u6216\u5207\u6362\u5206\u7EC4" : "\u8FDE\u63A5\u670D\u52A1\u5668\u540E\uFF0C\u63A8\u9001\u7684\u6D88\u606F\u4F1A\u663E\u793A\u5728\u8FD9\u91CC" })
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[12px] text-text-disabled", children: showFavorites ? "\u70B9\u51FB\u6D88\u606F\u53F3\u4FA7\u661F\u6807\u5373\u53EF\u6536\u85CF" : searchText ? "\u8BD5\u8BD5\u6E05\u7A7A\u641C\u7D22\u8BCD\u6216\u5207\u6362\u5206\u7EC4" : "\u8FDE\u63A5\u670D\u52A1\u5668\u540E\uFF0C\u63A8\u9001\u7684\u6D88\u606F\u4F1A\u663E\u793A\u5728\u8FD9\u91CC" })
       ] }) : visibleMessages.map((item) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
         MessageCard,
         {
@@ -25165,8 +25176,8 @@ function App() {
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `text-[14px] font-semibold ${statusColor}`, children: status.status || "\u672A\u8FDE\u63A5" })
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-2", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: onToggleConnection, className: "h-10 rounded border border-slate-200 px-4 text-[14px] text-slate-700", children: status.connected ? "\u65AD\u5F00" : "\u8FDE\u63A5" }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => setSettingsOpen(true), className: "h-10 rounded border border-slate-200 px-4 text-[14px] text-slate-700", children: "\u8BBE\u7F6E" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: onToggleConnection, className: "h-10 rounded border border-border px-4 text-[14px] text-text-soft", children: status.connected ? "\u65AD\u5F00" : "\u8FDE\u63A5" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => setSettingsOpen(true), className: "h-10 rounded border border-border px-4 text-[14px] text-text-soft", children: "\u8BBE\u7F6E" }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
             "button",
             {

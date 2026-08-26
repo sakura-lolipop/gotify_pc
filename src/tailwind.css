@@ -1,3 +1,75 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* CP6 双肤 token（值抄 bark/code-reference/gotify/tauri-version/tauri-app/src/styles.css，
+   全抄非简化；选择器改 .dark 类制——html 挂/摘由 renderer 按 nativeTheme 事件驱动，
+   单一事实=nativeTheme.themeSource（已解析 跟随系统/手动 浅/深）。
+   --chrome 为本仓新增：顶栏叠在 Mica 上的半透带；--toast-* 供 CP7 通知卡消费。 */
+:root {
+  --bg: #f6fbff;
+  --panel: #ffffff;
+  --panel-strong: #ffffff;
+  --card: #ffffff;
+  --card-hover: #fafafa;
+  --card-hover-alt: #f5f5f5;
+  --input: #ffffff;
+  --border: #e0e0e0;
+  --border-light: #f0f0f0;
+  --text: #333333;
+  --text-soft: #555555;
+  --text-muted: #888888;
+  --text-disabled: #aaaaaa;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --btn-primary-text: #ffffff;
+  --success-color: #22c55e;
+  --success-bg: #e9fbf2;
+  --success-text: #157347;
+  --danger-border: #ffcccc;
+  --danger-bg: #fff1f0;
+  --danger-text: #ff4d4f;
+  --modal-overlay: rgba(0, 0, 0, 0.42);
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --chrome: rgba(255, 255, 255, 0.7);
+  --toast-bg: #ffffff;
+  --toast-hover: #fafafa;
+  --toast-group-bg: #f5f5f5;
+  --toast-code-bg: #f0f6ff;
+  --toast-code-border: #d0e2ff;
+  --toast-code-hover: #e3edff;
+}
+
+:root.dark {
+  --bg: #07111f;
+  --panel: #101c2c;
+  --panel-strong: #16263b;
+  --card: #182436;
+  --card-hover: #1e2c41;
+  --card-hover-alt: #23344d;
+  --input: #0f1826;
+  --border: #2a3f5a;
+  --border-light: #1f3045;
+  --text: #e2e8f0;
+  --text-soft: #94a3b8;
+  --text-muted: #64748b;
+  --text-disabled: #475569;
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --btn-primary-text: #ffffff;
+  --success-color: #22c55e;
+  --success-bg: #0f3521;
+  --success-text: #6ee7b7;
+  --danger-border: #7f1d1d;
+  --danger-bg: #450a0a;
+  --danger-text: #fca5a5;
+  --modal-overlay: rgba(0, 0, 0, 0.7);
+  --shadow-color: rgba(0, 0, 0, 0.6);
+  --chrome: rgba(16, 28, 44, 0.7);
+  --toast-bg: #1e293b;
+  --toast-hover: #334155;
+  --toast-group-bg: #0f172a;
+  --toast-code-bg: rgba(59, 130, 246, 0.1);
+  --toast-code-border: #1e3a8a;
+  --toast-code-hover: rgba(59, 130, 246, 0.2);
+}

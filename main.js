@@ -1,6 +1,6 @@
 const path = require("node:path");
 const fs = require("node:fs");
-const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog, nativeTheme } = require("electron");
 const { ConfigStore } = require("./src/services/config-store");
 const { HistoryStore } = require("./src/services/history-store");
 const { GotifyClient, testConnection } = require("./src/services/gotify-client");
@@ -365,10 +365,12 @@ function bindGotifyEvents() {
 
 function setupIpc() {
   ipcMain.handle("app:getVersion", () => `v${app.getVersion()}`);
+  ipcMain.handle("theme:get", () => ({ dark: nativeTheme.shouldUseDarkColors }));
   ipcMain.handle("config:get", () => configStore.get());
   ipcMain.handle("config:save", async (_, nextConfig) => {
     const saved = configStore.save(nextConfig);
-    
+    applyThemeFromConfig();
+
     // Handle auto-launch
     const loginSettings = app.getLoginItemSettings();
     if (loginSettings.openAtLogin !== saved.autoLaunch) {
@@ -455,6 +457,11 @@ function setupIpc() {
   });
 }
 
+function applyThemeFromConfig() {
+  const theme = String(configStore?.get()?.theme || "system");
+  nativeTheme.themeSource = theme === "dark" || theme === "light" ? theme : "system";
+}
+
 function quitApp() {
   app.isQuiting = true;
   closeAllNotifications();
@@ -476,6 +483,12 @@ app.whenReady().then(() => {
   gotifyClient = new GotifyClient();
   bindGotifyEvents();
   setupIpc();
+  // CP6 双肤单一事实：nativeTheme.themeSource 已解析「跟随系统/手动浅/手动深」，
+  // renderer 只消费 shouldUseDarkColors 挂/摘 .dark 类，不再各自判断。
+  applyThemeFromConfig();
+  nativeTheme.on("updated", () => {
+    mainWindow?.webContents.send("theme-updated", { dark: nativeTheme.shouldUseDarkColors });
+  });
   // 判断本次是否为开机自启（wasOpenedAtLogin）或带 --hidden 参数启动，
   // 命中则将主窗口隐藏到托盘
   const loginSettings = app.getLoginItemSettings();
@@ -485,6 +498,7 @@ app.whenReady().then(() => {
   createTray();
   mainWindow?.webContents.on("did-finish-load", () => {
     mainWindow?.webContents.send("connection-status", currentConnectionStatus);
+    mainWindow?.webContents.send("theme-updated", { dark: nativeTheme.shouldUseDarkColors });
   });
   const config = configStore.get();
   if (config.serverUrl && config.clientToken) {

@@ -12,6 +12,7 @@ const DEFAULT_CONFIG = {
   notificationDuration: 5000,
   archiveExpiryMinutes: 60,
   codeSmartExpiry: true,
+  theme: "system" as "system" | "light" | "dark",
   minimizeToTray: true,
   showMainWindowOnStartup: true,
   autoLaunch: false,
@@ -58,6 +59,7 @@ type SettingsModalProps = {
 };
 type GotifyAPI = {
   getAppVersion: () => Promise<string>;
+  getThemeState: () => Promise<{ dark?: boolean }>;
   getConfig: () => Promise<Partial<Config>>;
   saveConfig: (config: Config) => Promise<Config>;
   testConnection: (payload: { serverUrl: string; clientToken: string }) => Promise<void>;
@@ -66,6 +68,7 @@ type GotifyAPI = {
   getMessages: () => Promise<MessageItem[]>;
   clearMessages: () => Promise<void>;
   onConnectionStatus: (cb: (payload: ConnectionStatus) => void) => () => void;
+  onThemeUpdated: (cb: (payload: { dark?: boolean }) => void) => () => void;
   onNewMessage: (cb: (payload: MessageItem) => void) => () => void;
   onOpenSettings: (cb: () => void) => () => void;
   onMessagesCleared: (cb: () => void) => () => void;
@@ -199,8 +202,8 @@ function SettingsModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
       <div className="absolute inset-0 bg-black/35" onClick={onClose}></div>
-      <div className="relative flex w-[700px] max-h-[86vh] max-w-[92vw] flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
-        <div className="border-b px-5 py-3 text-[28px] font-bold text-slate-800">Gotify 客户端设置</div>
+      <div className="relative flex w-[700px] max-h-[86vh] max-w-[92vw] flex-col overflow-hidden rounded-lg bg-panel shadow-2xl">
+        <div className="border-b px-5 py-3 text-[28px] font-bold text-text">Gotify 客户端设置</div>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 text-[14px]">
           <div className="flex items-center gap-3">
             <div className="w-32 text-[14px] font-bold whitespace-nowrap">服务器地址:</div>
@@ -208,7 +211,7 @@ function SettingsModal({
               value={config.serverUrl}
               onChange={onServerUrlChange}
               placeholder="https://your-gotify.example.com"
-              className="h-9 flex-1 rounded border px-3 text-[14px] outline-none focus:border-blue-500"
+              className="h-9 flex-1 rounded border border-border bg-input text-text px-3 text-[14px] outline-none focus:border-primary"
             />
           </div>
           <div className="flex items-center gap-3">
@@ -218,13 +221,13 @@ function SettingsModal({
               value={config.clientToken}
               onChange={onTokenChange}
               placeholder="Client Token"
-              className="h-9 flex-1 rounded border px-3 text-[14px] outline-none focus:border-blue-500"
+              className="h-9 flex-1 rounded border border-border bg-input text-text px-3 text-[14px] outline-none focus:border-primary"
             />
             <button onClick={() => setShowToken((v) => !v)} className="h-9 rounded border px-3 text-[13px]">
               {showToken ? "隐藏" : "显示"}
             </button>
           </div>
-          <div className="rounded border bg-slate-50 p-3">
+          <div className="rounded border bg-card-hover-alt p-3">
             <div className="mb-2 text-[15px] font-bold">通知设置</div>
             <div className="grid grid-cols-2 gap-y-2 text-[14px]">
               <label className="flex items-center gap-2">
@@ -245,7 +248,7 @@ function SettingsModal({
               </label>
             </div>
             <div className="mt-2">
-              <label className="flex items-center gap-2 text-red-600 text-[14px]">
+              <label className="flex items-center gap-2 text-danger-text text-[14px]">
                 <input type="checkbox" checked={config.notificationNeverClose} onChange={onNeverCloseChange} />
                 永不自动关闭
               </label>
@@ -259,9 +262,9 @@ function SettingsModal({
                 min={1000}
                 step={1000}
                 disabled={!config.notificationAutoHide || config.notificationNeverClose}
-                className="h-9 w-28 rounded border px-2 text-[14px] disabled:bg-slate-100"
+                className="h-9 w-28 rounded border border-border bg-input text-text px-2 text-[14px] disabled:bg-card-hover"
               />
-              <div className="text-slate-500 whitespace-nowrap">(仅在自动消失启用时)</div>
+              <div className="text-text-muted whitespace-nowrap">(仅在自动消失启用时)</div>
             </div>
             <div className="mt-2 flex items-center gap-2 text-[14px]">
               <div className="whitespace-nowrap">通知中心存档(分钟):</div>
@@ -271,26 +274,26 @@ function SettingsModal({
                 onChange={onArchiveExpiryChange}
                 min={1}
                 step={5}
-                className="h-9 w-28 rounded border px-2 text-[14px]"
+                className="h-9 w-28 rounded border border-border bg-input text-text px-2 text-[14px]"
               />
-              <div className="text-slate-500 whitespace-nowrap">(每条消息在系统通知中心的保留时长)</div>
+              <div className="text-text-muted whitespace-nowrap">(每条消息在系统通知中心的保留时长)</div>
             </div>
             <div className="mt-2">
               <label className="flex items-center gap-2 text-[14px]">
                 <input type="checkbox" checked={config.codeSmartExpiry} onChange={onCodeSmartExpiryChange} />
                 验证码按短信有效期存档
               </label>
-              <div className="mt-1 text-[12px] text-slate-400">勾选后验证码消息按短信中的「N分钟」存档，识别不到时回落到上方时长</div>
+              <div className="mt-1 text-[12px] text-text-muted">勾选后验证码消息按短信中的「N分钟」存档，识别不到时回落到上方时长</div>
             </div>
             <div className="mt-3">
-              <div className="mb-1 text-[12px] font-semibold text-slate-600">屏蔽弹窗分组:</div>
-              <div className="max-h-24 overflow-y-auto rounded border bg-white p-2">
+              <div className="mb-1 text-[12px] font-semibold text-text-soft">屏蔽弹窗分组:</div>
+              <div className="max-h-24 overflow-y-auto rounded border bg-input p-2">
                 {applications.length === 0 ? (
-                  <div className="text-[12px] text-slate-400">暂无应用分组，请先连接服务器</div>
+                  <div className="text-[12px] text-text-muted">暂无应用分组，请先连接服务器</div>
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
                     {applications.map((app) => (
-                      <label key={app.id} className="flex items-center gap-2 text-[12px] text-slate-700">
+                      <label key={app.id} className="flex items-center gap-2 text-[12px] text-text-soft">
                         <input
                           type="checkbox"
                           checked={config.mutedNotificationApps?.includes(app.id)}
@@ -302,27 +305,27 @@ function SettingsModal({
                   </div>
                 )}
               </div>
-              <div className="mt-1 text-[12px] text-slate-400">选中的分组将不再显示弹窗提醒</div>
+              <div className="mt-1 text-[12px] text-text-muted">选中的分组将不再显示弹窗提醒</div>
             </div>
           </div>
-          <div className="rounded border bg-slate-50 p-3">
+          <div className="rounded border bg-card-hover-alt p-3">
             <div className="mb-2 text-[15px] font-bold">Bark 消息转发</div>
             <div className="space-y-2">
-              <div className="text-[13px] text-slate-600">将收到的消息转发到 iOS Bark App</div>
+              <div className="text-[13px] text-text-soft">将收到的消息转发到 iOS Bark App</div>
               <input
                 value={config.barkServerUrl || ""}
                 onChange={onBarkUrlChange}
                 placeholder="https://api.day.app/YOUR_KEY"
-                className="h-9 w-full rounded border px-2 text-[13px] outline-none focus:border-blue-500"
+                className="h-9 w-full rounded border border-border bg-input text-text px-2 text-[13px] outline-none focus:border-primary"
               />
-              <div className="text-[12px] font-semibold text-slate-600">选择要转发的应用分组:</div>
-              <div className="max-h-24 overflow-y-auto rounded border bg-white p-2">
+              <div className="text-[12px] font-semibold text-text-soft">选择要转发的应用分组:</div>
+              <div className="max-h-24 overflow-y-auto rounded border bg-input p-2">
                 {applications.length === 0 ? (
-                  <div className="text-[12px] text-slate-400">暂无应用分组，请先连接服务器</div>
+                  <div className="text-[12px] text-text-muted">暂无应用分组，请先连接服务器</div>
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
                     {applications.map((app) => (
-                      <label key={app.id} className="flex items-center gap-2 text-[12px] text-slate-700">
+                      <label key={app.id} className="flex items-center gap-2 text-[12px] text-text-soft">
                         <input
                           type="checkbox"
                           checked={config.barkForwardApps?.includes(app.id)}
@@ -336,26 +339,26 @@ function SettingsModal({
               </div>
             </div>
           </div>
-          <div className="rounded border bg-slate-50 p-3">
+          <div className="rounded border bg-card-hover-alt p-3">
             <div className="mb-2 text-[15px] font-bold">数据存储</div>
             <div className="space-y-2">
-              <div className="text-[13px] text-slate-600">当前数据存储路径</div>
+              <div className="text-[13px] text-text-soft">当前数据存储路径</div>
               <div className="flex items-center gap-2">
-                <div className="flex-1 rounded border bg-white px-2 py-1.5 text-[12px] text-slate-600 break-all">
+                <div className="flex-1 rounded border border-border bg-input px-2 py-1.5 text-[12px] text-text-soft break-all">
                   {storagePath || "-"}
                 </div>
                 <button
                   onClick={onOpenStoragePath}
                   disabled={!storagePath}
-                  className="h-8 whitespace-nowrap rounded border border-blue-500 px-3 text-[12px] text-blue-600 hover:bg-blue-50 disabled:opacity-50 disabled:hover:bg-transparent"
+                  className="h-8 whitespace-nowrap rounded border border-primary px-3 text-[12px] text-primary hover:bg-card-hover disabled:opacity-50 disabled:hover:bg-transparent"
                 >
                   打开目录
                 </button>
               </div>
-              <div className="text-[12px] text-slate-400">如需迁移数据，请手动复制文件到新目录</div>
+              <div className="text-[12px] text-text-muted">如需迁移数据，请手动复制文件到新目录</div>
             </div>
           </div>
-          <div className="rounded border bg-slate-50 p-3">
+          <div className="rounded border bg-card-hover-alt p-3">
             <div className="mb-2 text-[15px] font-bold">其他设置</div>
             <div className="space-y-1.5 text-[14px]">
               <label className="flex items-center gap-2">
@@ -371,20 +374,20 @@ function SettingsModal({
                 启动时显示主界面
               </label>
             </div>
-            <div className="mt-3 border-t border-slate-200 pt-2 text-[13px] text-slate-500">
-              版本号: <span className="font-mono text-slate-700">{appVersion || "-"}</span>
+            <div className="mt-3 border-t border-border pt-2 text-[13px] text-text-muted">
+              版本号: <span className="font-mono text-text-soft">{appVersion || "-"}</span>
             </div>
           </div>
         </div>
-        <div className="shrink-0 flex items-center justify-between gap-3 border-t bg-slate-50 px-5 py-3">
-          <div className={`flex-1 min-w-0 break-words text-[14px] font-semibold leading-tight ${notice?.type === "error" ? "text-red-600" : "text-green-600"}`}>
+        <div className="shrink-0 flex items-center justify-between gap-3 border-t bg-card-hover-alt px-5 py-3">
+          <div className={`flex-1 min-w-0 break-words text-[14px] font-semibold leading-tight ${notice?.type === "error" ? "text-danger-text" : "text-success-text"}`}>
             {notice?.text || ""}
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <button onClick={onTest} disabled={testing} className="h-9 whitespace-nowrap rounded border px-3 text-[13px] disabled:opacity-50">
               {testing ? "测试中..." : "测试连接"}
             </button>
-            <button onClick={onSave} disabled={saving} className="h-9 whitespace-nowrap rounded bg-blue-600 px-3 text-[13px] text-white disabled:opacity-50">
+            <button onClick={onSave} disabled={saving} className="h-9 whitespace-nowrap rounded bg-primary px-3 text-[13px] text-white hover:bg-primary-hover disabled:opacity-50">
               {saving ? "保存中..." : "保存"}
             </button>
             <button onClick={onClose} className="h-9 whitespace-nowrap rounded border px-3 text-[13px]">
@@ -419,15 +422,15 @@ function MessageCard({ item, appLabel, onToggleFavorite }: { item: MessageItem; 
   }, [rawMessage, overLineLimit]);
   const visibleMessage = expanded || !canCollapse ? rawMessage : collapsedText;
   return (
-    <div className="flex gap-3 border-b bg-white px-4 py-2 hover:bg-slate-50">
+    <div className="flex gap-3 border-b border-border-light bg-card px-4 py-2 hover:bg-card-hover">
       {priorityColor ? <div className={`w-1 shrink-0 rounded-full ${priorityColor}`}></div> : null}
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <div className="truncate text-[15px] font-semibold text-slate-800">{item.title || "无标题"}</div>
+          <div className="truncate text-[15px] font-semibold text-text">{item.title || "无标题"}</div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => item.id && onToggleFavorite(item.id)}
-              className="text-slate-400 hover:text-amber-400 focus:outline-none"
+              className="text-text-muted hover:text-amber-400 focus:outline-none"
               title={item.favorite ? "取消收藏" : "收藏"}
             >
               {item.favorite ? (
@@ -448,11 +451,11 @@ function MessageCard({ item, appLabel, onToggleFavorite }: { item: MessageItem; 
                 </svg>
               )}
             </button>
-            <div className="whitespace-nowrap text-[12px] text-slate-400">{formatDate(item.date)}</div>
+            <div className="whitespace-nowrap text-[12px] text-text-muted">{formatDate(item.date)}</div>
           </div>
         </div>
-        <div className="mt-0.5 text-[12px] text-slate-400">{appLabel || `应用 #${item.appid || 0}`}</div>
-        <div className="mt-1 text-[13px] text-slate-700 whitespace-pre-wrap break-words">{visibleMessage}</div>
+        <div className="mt-0.5 text-[12px] text-text-muted">{appLabel || `应用 #${item.appid || 0}`}</div>
+        <div className="mt-1 text-[13px] text-text-soft whitespace-pre-wrap break-words">{visibleMessage}</div>
         {canCollapse ? (
           <button onClick={() => setExpanded((prev) => !prev)} className="mt-0.5 text-[12px] text-blue-600 hover:text-blue-700">
             {expanded ? "收起" : "展开"}
@@ -483,6 +486,17 @@ function App() {
   const [selectedAppId, setSelectedAppId] = useState("all");
   const [searchText, setSearchText] = useState("");
   const [showFavorites, setShowFavorites] = useState(false);
+
+  useEffect(() => {
+    // CP6：.dark 类的挂/摘只听 nativeTheme 下推（单一事实，含手动覆盖的解析结果）
+    const apply = (dark: boolean) => document.documentElement.classList.toggle("dark", Boolean(dark));
+    let unsubTheme: (() => void) | null = null;
+    window.gotifyAPI.getThemeState().then((state) => apply(Boolean(state?.dark))).catch(() => {});
+    unsubTheme = window.gotifyAPI.onThemeUpdated((payload) => apply(Boolean(payload?.dark)));
+    return () => {
+      if (typeof unsubTheme === "function") unsubTheme();
+    };
+  }, []);
 
   useEffect(() => {
     let unsubStatus = null;
@@ -548,7 +562,7 @@ function App() {
   }, [banner]);
 
   const statusColor = useMemo(() => {
-    if (status.connected) return "text-green-600";
+    if (status.connected) return "text-success-text";
     if (status.status.includes("重连")) return "text-amber-500";
     return "text-red-500";
   }, [status]);
@@ -698,7 +712,7 @@ function App() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center text-slate-500">
+      <div className="flex h-full items-center justify-center text-text-muted">
         <div className="text-[20px]">加载中...</div>
       </div>
     );
@@ -706,17 +720,17 @@ function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between bg-white/70 px-3 py-2 shadow-sm">
+      <div className="flex items-center justify-between bg-chrome px-3 py-2 shadow-sm">
         <div className="flex items-center gap-4">
           <button
             onClick={() => setShowFavorites(false)}
-            className={`text-[16px] font-bold ${!showFavorites ? "text-slate-700" : "text-slate-400 hover:text-slate-600"}`}
+            className={`text-[16px] font-bold ${!showFavorites ? "text-text-soft" : "text-text-muted hover:text-text-soft"}`}
           >
             历史消息
           </button>
           <button
             onClick={() => setShowFavorites(true)}
-            className={`text-[16px] font-bold ${showFavorites ? "text-slate-700" : "text-slate-400 hover:text-slate-600"}`}
+            className={`text-[16px] font-bold ${showFavorites ? "text-text-soft" : "text-text-muted hover:text-text-soft"}`}
           >
             我的收藏
           </button>
@@ -727,10 +741,10 @@ function App() {
               value={searchText}
               onChange={(event: ChangeEvent<HTMLInputElement>) => setSearchText(event.target.value)}
               placeholder="搜索消息..."
-              className="h-8 w-40 rounded border border-slate-200 bg-white pl-2 pr-7 text-[12px] text-slate-600 outline-none focus:border-blue-500"
+              className="h-8 w-40 rounded border border-border bg-input pl-2 pr-7 text-[12px] text-text-soft outline-none focus:border-primary"
             />
             {searchText ? (
-              <button onClick={() => setSearchText("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600">
+              <button onClick={() => setSearchText("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-soft">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
                   <path
                     fillRule="evenodd"
@@ -744,7 +758,7 @@ function App() {
           <select
             value={selectedAppId}
             onChange={(event: ChangeEvent<HTMLSelectElement>) => setSelectedAppId(event.target.value)}
-            className="h-8 rounded border border-slate-200 bg-white px-2 text-[12px] text-slate-600"
+            className="h-8 rounded border border-border bg-input px-2 text-[12px] text-text-soft"
           >
             {applicationOptions.map((item) => (
               <option key={item.id} value={item.id}>
@@ -752,15 +766,15 @@ function App() {
               </option>
             ))}
           </select>
-          <div className="text-[14px] text-slate-500">{visibleMessages.length} 条消息</div>
+          <div className="text-[14px] text-text-muted">{visibleMessages.length} 条消息</div>
         </div>
       </div>
       {banner ? <div className="bg-blue-50 px-3 py-2 text-[14px] text-blue-700">{banner}</div> : null}
       <div className="flex min-h-0 flex-1 flex-col p-3 pt-0">
-        <div className="scroll-thin min-h-0 flex-1 overflow-y-auto rounded border bg-white">
+        <div className="scroll-thin min-h-0 flex-1 overflow-y-auto rounded border border-border bg-card">
           {visibleMessages.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center gap-2 py-16 text-slate-400">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.2} stroke="currentColor" className="h-10 w-10 text-slate-300">
+            <div className="flex h-full flex-col items-center justify-center gap-2 py-16 text-text-muted">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.2} stroke="currentColor" className="h-10 w-10 text-text-disabled">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -770,7 +784,7 @@ function App() {
               <div className="text-[14px]">
                 {showFavorites ? "暂无收藏消息" : searchText ? `没有匹配「${searchText}」的消息` : "暂无消息"}
               </div>
-              <div className="text-[12px] text-slate-300">
+              <div className="text-[12px] text-text-disabled">
                 {showFavorites ? "点击消息右侧星标即可收藏" : searchText ? "试试清空搜索词或切换分组" : "连接服务器后，推送的消息会显示在这里"}
               </div>
             </div>
@@ -791,10 +805,10 @@ function App() {
             <div className={`text-[14px] font-semibold ${statusColor}`}>{status.status || "未连接"}</div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={onToggleConnection} className="h-10 rounded border border-slate-200 px-4 text-[14px] text-slate-700">
+            <button onClick={onToggleConnection} className="h-10 rounded border border-border px-4 text-[14px] text-text-soft">
               {status.connected ? "断开" : "连接"}
             </button>
-            <button onClick={() => setSettingsOpen(true)} className="h-10 rounded border border-slate-200 px-4 text-[14px] text-slate-700">
+            <button onClick={() => setSettingsOpen(true)} className="h-10 rounded border border-border px-4 text-[14px] text-text-soft">
               设置
             </button>
             <button

@@ -14,10 +14,10 @@
         .scroll-thin::-webkit-scrollbar { width: 8px; }
         .scroll-thin::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 4px; }
         #boot-screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: transparent; z-index: 9999; }
-        .boot-card { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-radius: 12px; background: #ffffff; box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08); }
+        .boot-card { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-radius: 12px; background: var(--card, #ffffff); box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08); }
         .boot-icon { width: 40px; height: 40px; border-radius: 10px; object-fit: contain; }
-        .boot-text { font-size: 16px; color: #1e293b; font-weight: 600; }
-        .boot-sub { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+        .boot-text { font-size: 16px; color: var(--text, #1e293b); font-weight: 600; }
+        .boot-sub { font-size: 12px; color: var(--text-muted, #94a3b8); margin-top: 2px; }
     </style>
 </head>
 <body>
