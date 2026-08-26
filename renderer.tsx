@@ -191,7 +191,7 @@ function SettingsModal({
   };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose}></div>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[3px]" onClick={onClose}></div>
       <div className="relative flex w-[640px] max-h-[86vh] max-w-[92vw] flex-col overflow-hidden rounded-lg bg-panel shadow-2xl">
         <div className="border-b border-border-light px-5 py-3 text-[18px] font-semibold text-text">设置</div>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 text-[13px]">

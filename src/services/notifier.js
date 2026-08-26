@@ -1,4 +1,4 @@
-const { BrowserWindow, Notification, clipboard, screen, ipcMain } = require("electron");
+const { BrowserWindow, Notification, clipboard, screen, ipcMain, nativeTheme } = require("electron");
 
 // Single home of the app identity used for Windows notifications. The
 // Start Menu shortcut must carry this exact AUMID as its
@@ -132,6 +132,41 @@ function repositionNotifications() {
   });
 }
 
+// 通知卡配色（CP7）：Acrylic 窗体上叠半透明面色透出磨砂桌面，随系统深浅
+// 取 CP6 token 同族色值；卡是生成时定色的短命表面，切换主题不追已发卡。
+const CARD_PALETTE = {
+  dark: {
+    card: "rgba(16, 28, 44, 0.66)",
+    cardHover: "rgba(30, 44, 65, 0.74)",
+    border: "rgba(42, 63, 90, 0.65)",
+    title: "#e2e8f0",
+    app: "#94a3b8",
+    body: "#cbd5e1",
+    close: "#64748b",
+    closeHoverBg: "rgba(100, 116, 139, 0.22)",
+    closeHover: "#e2e8f0",
+    code: "#6ee7b7",
+    codeBg: "rgba(34, 197, 94, 0.16)",
+    okBg: "#22c55e",
+    ok: "#ffffff"
+  },
+  light: {
+    card: "rgba(255, 255, 255, 0.66)",
+    cardHover: "rgba(250, 250, 250, 0.76)",
+    border: "rgba(224, 224, 224, 0.85)",
+    title: "#333333",
+    app: "#555555",
+    body: "#555555",
+    close: "#888888",
+    closeHoverBg: "rgba(136, 136, 136, 0.18)",
+    closeHover: "#333333",
+    code: "#157347",
+    codeBg: "rgba(34, 197, 94, 0.14)",
+    okBg: "#22c55e",
+    ok: "#ffffff"
+  }
+};
+
 function buildCustomNotificationHtml({ iconDataUrl, title, subtitle, body, id, verificationCode }) {
   const escapeHtml = (text) =>
     String(text || "")
@@ -139,6 +174,7 @@ function buildCustomNotificationHtml({ iconDataUrl, title, subtitle, body, id, v
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;");
   const code = verificationCode || "";
+  const c = nativeTheme.shouldUseDarkColors ? CARD_PALETTE.dark : CARD_PALETTE.light;
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -146,19 +182,20 @@ function buildCustomNotificationHtml({ iconDataUrl, title, subtitle, body, id, v
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; padding: 0; overflow: hidden; background: transparent; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
-    .card { width: ${NOTIFICATION_WIDTH}px; min-height: ${NOTIFICATION_HEIGHT}px; border-radius: 14px; background: linear-gradient(180deg, #1c2737 0%, #131c29 100%); color: #f1f5f9; padding: 12px; display: flex; gap: 10px; box-shadow: 0 14px 30px rgba(0,0,0,0.35); border: 1px solid rgba(148,163,184,0.22); animation: popup .18s ease-out; cursor: pointer; transition: background 0.2s; }
-    .card:hover { background: linear-gradient(180deg, #253347 0%, #1a2535 100%); }
+    .card { width: ${NOTIFICATION_WIDTH}px; min-height: ${NOTIFICATION_HEIGHT}px; border-radius: 14px; background: ${c.card}; color: ${c.title}; padding: 12px; display: flex; gap: 10px; border: 1px solid ${c.border}; animation: popup .18s ease-out; cursor: pointer; transition: background 0.2s; }
+    .card:hover { background: ${c.cardHover}; }
     @keyframes popup { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     .avatar { width: 36px; height: 36px; border-radius: 8px; background: transparent; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
     .avatar img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .main { min-width: 0; flex: 1; }
     .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    .title { font-size: 15px; font-weight: 700; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
-    .app-name { font-size: 13px; color: #93c5fd; font-weight: 400; margin-left: 4px; }
-    .close { border: none; background: transparent; color: #94a3b8; font-size: 14px; width: 22px; height: 22px; cursor: pointer; border-radius: 6px; line-height: 22px; flex-shrink: 0; }
-    .close:hover { background: rgba(148,163,184,0.18); color: #e2e8f0; }
-    .body { margin-top: 6px; font-size: 13px; line-height: 1.35; color: #e2e8f0; white-space: pre-line; max-height: 54px; overflow: hidden; }
-    .code-hint { display: ${code ? "inline-block" : "none"}; font-size: 11px; color: #4ade80; background: rgba(74, 222, 128, 0.15); padding: 1px 6px; border-radius: 4px; margin-left: 8px; vertical-align: middle; flex-shrink: 0; }
+    .title { font-size: 15px; font-weight: 700; color: ${c.title}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+    .app-name { font-size: 13px; color: ${c.app}; font-weight: 400; margin-left: 4px; }
+    .close { border: none; background: transparent; color: ${c.close}; font-size: 14px; width: 22px; height: 22px; cursor: pointer; border-radius: 6px; line-height: 22px; flex-shrink: 0; }
+    .close:hover { background: ${c.closeHoverBg}; color: ${c.closeHover}; }
+    .body { margin-top: 6px; font-size: 13px; line-height: 1.35; color: ${c.body}; white-space: pre-line; max-height: 54px; overflow: hidden; }
+    .code-hint { display: ${code ? "inline-block" : "none"}; font-size: 11px; color: ${c.code}; background: ${c.codeBg}; padding: 1px 6px; border-radius: 4px; margin-left: 8px; vertical-align: middle; flex-shrink: 0; }
+    .code-hint.ok { color: ${c.ok}; background: ${c.okBg}; }
   </style>
 </head>
 <body>
@@ -192,8 +229,7 @@ function buildCustomNotificationHtml({ iconDataUrl, title, subtitle, body, id, v
         const hint = document.querySelector(".code-hint");
         if (hint) {
           hint.innerText = "复制成功";
-          hint.style.color = "#ffffff";
-          hint.style.background = "#22c55e";
+          hint.classList.add("ok");
         }
         setTimeout(() => {
           ipcRenderer.send("custom-notification-close", "${id}");
@@ -251,6 +287,8 @@ function showCustomNotification(message, config) {
     focusable: false,
     alwaysOnTop: true,
     show: false,
+    // CP7 M2：Acrylic 窗体（叠桌面磨砂），半透明面色在 CSS 层
+    ...(process.platform === "win32" ? { backgroundMaterial: "acrylic" } : {}),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
