@@ -24581,6 +24581,40 @@ var DEFAULT_CONFIG = {
   barkForwardApps: [],
   mutedNotificationApps: []
 };
+function Switch({ checked, onChange, disabled = false, danger = false }) {
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+    "button",
+    {
+      type: "button",
+      role: "switch",
+      "aria-checked": checked,
+      disabled,
+      onClick: () => onChange(!checked),
+      className: `relative h-5 w-9 shrink-0 rounded-full transition-colors focus:outline-none disabled:opacity-40 ${checked ? danger ? "bg-danger-text" : "bg-primary" : "bg-text-disabled"}`,
+      children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${checked ? "left-[18px]" : "left-0.5"}` })
+    }
+  );
+}
+function Chip({ label, active, onClick }) {
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+    "button",
+    {
+      type: "button",
+      onClick,
+      className: `rounded-full border px-3 py-1 text-[12px] transition-colors ${active ? "border-primary bg-primary text-white" : "border-border bg-input text-text-soft hover:bg-card-hover"}`,
+      children: label
+    }
+  );
+}
+function SettingRow({ label, hint, children }) {
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center justify-between gap-3 py-1.5", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "min-w-0", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[13px] text-text", children: label }),
+      hint ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-0.5 text-[11px] leading-snug text-text-muted", children: hint }) : null
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex shrink-0 items-center gap-2", children })
+  ] });
+}
 function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -24589,11 +24623,9 @@ function formatDate(value) {
   return `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 function SettingsModal({
-  open,
   onClose,
-  config,
+  initialConfig,
   appVersion,
-  setConfig,
   onSave,
   onTest,
   testing,
@@ -24609,276 +24641,185 @@ function SettingsModal({
 }) {
   const [showToken, setShowToken] = (0, import_react.useState)(false);
   const [applications, setApplications] = (0, import_react.useState)([]);
+  const [draft, setDraft] = (0, import_react.useState)({ ...initialConfig });
   (0, import_react.useEffect)(() => {
-    if (open) {
-      window.gotifyAPI.getApplications().then((apps) => {
-        setApplications(Array.isArray(apps) ? apps : []);
-      });
-    }
-  }, [open]);
-  const onServerUrlChange = (event) => {
-    setConfig((prev) => ({ ...prev, serverUrl: event.target.value }));
-  };
-  const onTokenChange = (event) => {
-    setConfig((prev) => ({ ...prev, clientToken: event.target.value }));
-  };
-  const onShowCustomNotificationChange = (event) => {
-    setConfig((prev) => ({ ...prev, showCustomNotification: event.target.checked }));
-  };
-  const onPlaySoundChange = (event) => {
-    setConfig((prev) => ({ ...prev, playSound: event.target.checked }));
-  };
-  const onEnableReconnectChange = (event) => {
-    setConfig((prev) => ({ ...prev, enableReconnect: event.target.checked }));
-  };
-  const onAutoHideChange = (event) => {
-    const checked = event.target.checked;
-    setConfig((prev) => ({ ...prev, notificationAutoHide: checked, notificationNeverClose: checked ? false : prev.notificationNeverClose }));
-  };
-  const onNeverCloseChange = (event) => {
-    const checked = event.target.checked;
-    setConfig((prev) => ({ ...prev, notificationNeverClose: checked, notificationAutoHide: checked ? false : prev.notificationAutoHide }));
-  };
-  const onDurationChange = (event) => {
-    setConfig((prev) => ({ ...prev, notificationDuration: Number(event.target.value || 0) }));
-  };
-  const onArchiveExpiryChange = (event) => {
-    setConfig((prev) => ({ ...prev, archiveExpiryMinutes: Number(event.target.value || 0) }));
-  };
-  const onCodeSmartExpiryChange = (event) => {
-    setConfig((prev) => ({ ...prev, codeSmartExpiry: event.target.checked }));
-  };
-  const onMinimizeToTrayChange = (event) => {
-    setConfig((prev) => ({ ...prev, minimizeToTray: event.target.checked }));
-  };
-  const onShowOnStartupChange = (event) => {
-    setConfig((prev) => ({ ...prev, showMainWindowOnStartup: event.target.checked }));
-  };
-  const onAutoLaunchChange = (event) => {
-    setConfig((prev) => ({ ...prev, autoLaunch: event.target.checked }));
-  };
-  const onBarkUrlChange = (event) => {
-    setConfig((prev) => ({ ...prev, barkServerUrl: event.target.value }));
-  };
-  const onMutedNotificationAppToggle = (id) => {
-    setConfig((prev) => {
-      const current = Array.isArray(prev.mutedNotificationApps) ? prev.mutedNotificationApps : [];
-      if (current.includes(id)) {
-        return { ...prev, mutedNotificationApps: current.filter((x) => x !== id) };
-      }
-      return { ...prev, mutedNotificationApps: [...current, id] };
+    window.gotifyAPI.getApplications().then((apps) => {
+      setApplications(Array.isArray(apps) ? apps : []);
     });
-  };
-  const onBarkAppToggle = (id) => {
-    setConfig((prev) => {
-      const current = Array.isArray(prev.barkForwardApps) ? prev.barkForwardApps : [];
-      if (current.includes(id)) {
-        return { ...prev, barkForwardApps: current.filter((x) => x !== id) };
-      }
-      return { ...prev, barkForwardApps: [...current, id] };
-    });
-  };
-  const onDraftStoragePathChange = (event) => {
-    setDraftStoragePath(event.target.value);
-  };
+  }, []);
+  const patch = (partial) => setDraft((prev) => ({ ...prev, ...partial }));
+  const onServerUrlChange = (event) => patch({ serverUrl: event.target.value });
+  const onTokenChange = (event) => patch({ clientToken: event.target.value });
+  const onBarkUrlChange = (event) => patch({ barkServerUrl: event.target.value });
+  const onAutoHideChange = (checked) => patch({ notificationAutoHide: checked, notificationNeverClose: checked ? false : draft.notificationNeverClose });
+  const onNeverCloseChange = (checked) => patch({ notificationNeverClose: checked, notificationAutoHide: checked ? false : draft.notificationAutoHide });
+  const onDurationSecondsChange = (event) => patch({ notificationDuration: Math.round(Number(event.target.value || 1)) * 1e3 });
+  const onArchiveMinutesChange = (event) => patch({ archiveExpiryMinutes: Number(event.target.value || 5) });
+  const toggleIdIn = (key, id) => setDraft((prev) => {
+    const current = Array.isArray(prev[key]) ? prev[key] : [];
+    return { ...prev, [key]: current.includes(id) ? current.filter((x) => x !== id) : [...current, id] };
+  });
   const onOpenStoragePath = async () => {
     try {
       await window.gotifyAPI.openStoragePath();
     } catch (e) {
     }
   };
-  if (!open) {
-    return null;
-  }
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-3", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "absolute inset-0 bg-black/35", onClick: onClose }),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "relative flex w-[700px] max-h-[86vh] max-w-[92vw] flex-col overflow-hidden rounded-lg bg-panel shadow-2xl", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "border-b px-5 py-3 text-[28px] font-bold text-text", children: "Gotify \u5BA2\u6237\u7AEF\u8BBE\u7F6E" }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 text-[14px]", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-3", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "w-32 text-[14px] font-bold whitespace-nowrap", children: "\u670D\u52A1\u5668\u5730\u5740:" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            "input",
-            {
-              value: config.serverUrl,
-              onChange: onServerUrlChange,
-              placeholder: "https://your-gotify.example.com",
-              className: "h-9 flex-1 rounded border border-border bg-input text-text px-3 text-[14px] outline-none focus:border-primary"
-            }
-          )
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-3", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "w-32 text-[14px] font-bold whitespace-nowrap", children: "\u5BA2\u6237\u7AEF\u4EE4\u724C:" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            "input",
-            {
-              type: showToken ? "text" : "password",
-              value: config.clientToken,
-              onChange: onTokenChange,
-              placeholder: "Client Token",
-              className: "h-9 flex-1 rounded border border-border bg-input text-text px-3 text-[14px] outline-none focus:border-primary"
-            }
-          ),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => setShowToken((v) => !v), className: "h-9 rounded border px-3 text-[13px]", children: showToken ? "\u9690\u85CF" : "\u663E\u793A" })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border bg-card-hover-alt p-3", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-2 text-[15px] font-bold", children: "\u901A\u77E5\u8BBE\u7F6E" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "grid grid-cols-2 gap-y-2 text-[14px]", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { type: "checkbox", checked: config.showCustomNotification, onChange: onShowCustomNotificationChange }),
-              "\u663E\u793A\u81EA\u5B9A\u4E49\u5F39\u7A97\u901A\u77E5"
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { type: "checkbox", checked: config.playSound, onChange: onPlaySoundChange }),
-              "\u64AD\u653E\u63D0\u793A\u97F3"
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { type: "checkbox", checked: config.enableReconnect, onChange: onEnableReconnectChange }),
-              "\u542F\u7528\u4E3B\u52A8\u91CD\u8FDE"
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { type: "checkbox", checked: config.notificationAutoHide, onChange: onAutoHideChange }),
-              "\u901A\u77E5\u81EA\u52A8\u6D88\u5931"
-            ] })
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-2", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "flex items-center gap-2 text-danger-text text-[14px]", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { type: "checkbox", checked: config.notificationNeverClose, onChange: onNeverCloseChange }),
-            "\u6C38\u4E0D\u81EA\u52A8\u5173\u95ED"
-          ] }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "mt-2 flex items-center gap-2 text-[14px]", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "whitespace-nowrap", children: "\u901A\u77E5\u6301\u7EED\u65F6\u95F4(\u6BEB\u79D2):" }),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "absolute inset-0 bg-black/40", onClick: onClose }),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "relative flex w-[640px] max-h-[86vh] max-w-[92vw] flex-col overflow-hidden rounded-lg bg-panel shadow-2xl", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "border-b border-border-light px-5 py-3 text-[18px] font-semibold text-text", children: "\u8BBE\u7F6E" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 text-[13px]", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1 text-[13px] font-semibold text-text-soft", children: "\u670D\u52A1\u5668" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-3 py-1.5", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "w-24 text-[13px] text-text shrink-0", children: "\u670D\u52A1\u5668\u5730\u5740" }),
             /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
               "input",
               {
-                type: "number",
-                value: config.notificationDuration,
-                onChange: onDurationChange,
-                min: 1e3,
-                step: 1e3,
-                disabled: !config.notificationAutoHide || config.notificationNeverClose,
-                className: "h-9 w-28 rounded border border-border bg-input text-text px-2 text-[14px] disabled:bg-card-hover"
+                value: draft.serverUrl,
+                onChange: onServerUrlChange,
+                placeholder: "https://your-gotify.example.com",
+                className: "h-8 flex-1 rounded border border-border bg-input text-text px-3 text-[13px] outline-none focus:border-primary"
               }
-            ),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-text-muted whitespace-nowrap", children: "(\u4EC5\u5728\u81EA\u52A8\u6D88\u5931\u542F\u7528\u65F6)" })
+            )
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "mt-2 flex items-center gap-2 text-[14px]", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "whitespace-nowrap", children: "\u901A\u77E5\u4E2D\u5FC3\u5B58\u6863(\u5206\u949F):" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-3 py-1.5", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "w-24 text-[13px] text-text shrink-0", children: "\u5BA2\u6237\u7AEF\u4EE4\u724C" }),
             /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
               "input",
               {
-                type: "number",
-                value: config.archiveExpiryMinutes,
-                onChange: onArchiveExpiryChange,
-                min: 1,
-                step: 5,
-                className: "h-9 w-28 rounded border border-border bg-input text-text px-2 text-[14px]"
+                type: showToken ? "text" : "password",
+                value: draft.clientToken,
+                onChange: onTokenChange,
+                placeholder: "Client Token",
+                className: "h-8 flex-1 rounded border border-border bg-input text-text px-3 text-[13px] outline-none focus:border-primary"
               }
             ),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-text-muted whitespace-nowrap", children: "(\u6BCF\u6761\u6D88\u606F\u5728\u7CFB\u7EDF\u901A\u77E5\u4E2D\u5FC3\u7684\u4FDD\u7559\u65F6\u957F)" })
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "mt-2", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "flex items-center gap-2 text-[14px]", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { type: "checkbox", checked: config.codeSmartExpiry, onChange: onCodeSmartExpiryChange }),
-              "\u9A8C\u8BC1\u7801\u6309\u77ED\u4FE1\u6709\u6548\u671F\u5B58\u6863"
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-1 text-[12px] text-text-muted", children: "\u52FE\u9009\u540E\u9A8C\u8BC1\u7801\u6D88\u606F\u6309\u77ED\u4FE1\u4E2D\u7684\u300CN\u5206\u949F\u300D\u5B58\u6863\uFF0C\u8BC6\u522B\u4E0D\u5230\u65F6\u56DE\u843D\u5230\u4E0A\u65B9\u65F6\u957F" })
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "mt-3", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1 text-[12px] font-semibold text-text-soft", children: "\u5C4F\u853D\u5F39\u7A97\u5206\u7EC4:" }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "max-h-24 overflow-y-auto rounded border bg-input p-2", children: applications.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[12px] text-text-muted", children: "\u6682\u65E0\u5E94\u7528\u5206\u7EC4\uFF0C\u8BF7\u5148\u8FDE\u63A5\u670D\u52A1\u5668" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "grid grid-cols-2 gap-2", children: applications.map((app) => {
-              var _a;
-              return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "flex items-center gap-2 text-[12px] text-text-soft", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-                  "input",
-                  {
-                    type: "checkbox",
-                    checked: (_a = config.mutedNotificationApps) == null ? void 0 : _a.includes(app.id),
-                    onChange: () => onMutedNotificationAppToggle(app.id)
-                  }
-                ),
-                app.name
-              ] }, app.id);
-            }) }) }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-1 text-[12px] text-text-muted", children: "\u9009\u4E2D\u7684\u5206\u7EC4\u5C06\u4E0D\u518D\u663E\u793A\u5F39\u7A97\u63D0\u9192" })
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => setShowToken((v) => !v), className: "h-8 rounded border border-border bg-card px-3 text-[12px] text-text-soft hover:bg-card-hover", children: showToken ? "\u9690\u85CF" : "\u663E\u793A" })
           ] })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border bg-card-hover-alt p-3", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-2 text-[15px] font-bold", children: "Bark \u6D88\u606F\u8F6C\u53D1" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[13px] text-text-soft", children: "\u5C06\u6536\u5230\u7684\u6D88\u606F\u8F6C\u53D1\u5230 iOS Bark App" }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1 text-[13px] font-semibold text-text-soft", children: "\u901A\u77E5" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u663E\u793A\u81EA\u5B9A\u4E49\u5F39\u7A97\u901A\u77E5", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.showCustomNotification, onChange: (v) => patch({ showCustomNotification: v }) }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u64AD\u653E\u63D0\u793A\u97F3", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.playSound, onChange: (v) => patch({ playSound: v }) }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u542F\u7528\u4E3B\u52A8\u91CD\u8FDE", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.enableReconnect, onChange: (v) => patch({ enableReconnect: v }) }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u901A\u77E5\u81EA\u52A8\u6D88\u5931", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.notificationAutoHide, onChange: onAutoHideChange }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(SettingRow, { label: "\u901A\u77E5\u6301\u7EED\u65F6\u95F4", hint: "\u4EC5\u5728\u81EA\u52A8\u6D88\u5931\u542F\u7528\u65F6\u751F\u6548", children: [
             /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
               "input",
               {
-                value: config.barkServerUrl || "",
+                type: "range",
+                min: 1,
+                max: 60,
+                step: 1,
+                value: Math.max(1, Math.round(draft.notificationDuration / 1e3)),
+                onChange: onDurationSecondsChange,
+                disabled: !draft.notificationAutoHide || draft.notificationNeverClose,
+                className: "w-40 accent-primary disabled:opacity-40"
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "w-12 text-right text-[12px] tabular-nums text-text-soft", children: [
+              Math.max(1, Math.round(draft.notificationDuration / 1e3)),
+              " \u79D2"
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u6C38\u4E0D\u81EA\u52A8\u5173\u95ED", hint: "\u4E0E\u300C\u81EA\u52A8\u6D88\u5931\u300D\u4E92\u65A5", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { danger: true, checked: draft.notificationNeverClose, onChange: onNeverCloseChange }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(SettingRow, { label: "\u901A\u77E5\u4E2D\u5FC3\u5B58\u6863\u65F6\u957F", hint: "\u6BCF\u6761\u6D88\u606F\u5728\u7CFB\u7EDF\u901A\u77E5\u4E2D\u5FC3\u7684\u4FDD\u7559\u65F6\u95F4", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              "input",
+              {
+                type: "range",
+                min: 5,
+                max: 240,
+                step: 5,
+                value: Math.max(5, draft.archiveExpiryMinutes),
+                onChange: onArchiveMinutesChange,
+                className: "w-40 accent-primary"
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "w-14 text-right text-[12px] tabular-nums text-text-soft", children: [
+              Math.max(5, draft.archiveExpiryMinutes),
+              " \u5206\u949F"
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u9A8C\u8BC1\u7801\u6309\u77ED\u4FE1\u6709\u6548\u671F\u5B58\u6863", hint: "\u6309\u77ED\u4FE1\u4E2D\u7684\u300CN\u5206\u949F\u300D\u5B58\u6863\uFF0C\u8BC6\u522B\u4E0D\u5230\u65F6\u56DE\u843D\u5230\u4E0A\u65B9\u65F6\u957F", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.codeSmartExpiry, onChange: (v) => patch({ codeSmartExpiry: v }) }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "border-t border-border-light pt-2", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[13px] text-text", children: "\u5C4F\u853D\u5F39\u7A97\u5206\u7EC4" }),
+            applications.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[12px] text-text-muted", children: "\u6682\u65E0\u5E94\u7528\u5206\u7EC4\uFF0C\u8BF7\u5148\u8FDE\u63A5\u670D\u52A1\u5668" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex flex-wrap gap-1.5", children: applications.map((app) => {
+              var _a;
+              return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Chip, { label: app.name, active: (_a = draft.mutedNotificationApps) == null ? void 0 : _a.includes(app.id), onClick: () => toggleIdIn("mutedNotificationApps", app.id) }, app.id);
+            }) }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-1 text-[11px] text-text-muted", children: "\u9009\u4E2D\u7684\u5206\u7EC4\u5C06\u4E0D\u518D\u663E\u793A\u5F39\u7A97\u63D0\u9192" })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1 text-[13px] font-semibold text-text-soft", children: "Bark \u6D88\u606F\u8F6C\u53D1" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "space-y-2", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              "input",
+              {
+                value: draft.barkServerUrl || "",
                 onChange: onBarkUrlChange,
                 placeholder: "https://api.day.app/YOUR_KEY",
-                className: "h-9 w-full rounded border border-border bg-input text-text px-2 text-[13px] outline-none focus:border-primary"
+                className: "h-8 w-full rounded border border-border bg-input text-text px-2 text-[13px] outline-none focus:border-primary"
               }
             ),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[12px] font-semibold text-text-soft", children: "\u9009\u62E9\u8981\u8F6C\u53D1\u7684\u5E94\u7528\u5206\u7EC4:" }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "max-h-24 overflow-y-auto rounded border bg-input p-2", children: applications.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[12px] text-text-muted", children: "\u6682\u65E0\u5E94\u7528\u5206\u7EC4\uFF0C\u8BF7\u5148\u8FDE\u63A5\u670D\u52A1\u5668" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "grid grid-cols-2 gap-2", children: applications.map((app) => {
-              var _a;
-              return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "flex items-center gap-2 text-[12px] text-text-soft", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-                  "input",
-                  {
-                    type: "checkbox",
-                    checked: (_a = config.barkForwardApps) == null ? void 0 : _a.includes(app.id),
-                    onChange: () => onBarkAppToggle(app.id)
-                  }
-                ),
-                app.name
-              ] }, app.id);
-            }) }) })
-          ] })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border bg-card-hover-alt p-3", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-2 text-[15px] font-bold", children: "\u6570\u636E\u5B58\u50A8" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[13px] text-text-soft", children: "\u5F53\u524D\u6570\u636E\u5B58\u50A8\u8DEF\u5F84" }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex-1 rounded border border-border bg-input px-2 py-1.5 text-[12px] text-text-soft break-all", children: storagePath || "-" }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-                "button",
-                {
-                  onClick: onOpenStoragePath,
-                  disabled: !storagePath,
-                  className: "h-8 whitespace-nowrap rounded border border-primary px-3 text-[12px] text-primary hover:bg-card-hover disabled:opacity-50 disabled:hover:bg-transparent",
-                  children: "\u6253\u5F00\u76EE\u5F55"
-                }
-              )
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[12px] text-text-muted", children: "\u5982\u9700\u8FC1\u79FB\u6570\u636E\uFF0C\u8BF7\u624B\u52A8\u590D\u5236\u6587\u4EF6\u5230\u65B0\u76EE\u5F55" })
-          ] })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border bg-card-hover-alt p-3", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-2 text-[15px] font-bold", children: "\u5176\u4ED6\u8BBE\u7F6E" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "space-y-1.5 text-[14px]", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { type: "checkbox", checked: config.minimizeToTray, onChange: onMinimizeToTrayChange }),
-              "\u6700\u5C0F\u5316\u5230\u7CFB\u7EDF\u6258\u76D8"
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { type: "checkbox", checked: config.autoLaunch, onChange: onAutoLaunchChange }),
-              "\u5F00\u673A\u81EA\u52A8\u542F\u52A8"
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { type: "checkbox", checked: config.showMainWindowOnStartup, onChange: onShowOnStartupChange }),
-              "\u542F\u52A8\u65F6\u663E\u793A\u4E3B\u754C\u9762"
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[13px] text-text", children: "\u8981\u8F6C\u53D1\u7684\u5E94\u7528\u5206\u7EC4" }),
+              applications.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[12px] text-text-muted", children: "\u6682\u65E0\u5E94\u7528\u5206\u7EC4\uFF0C\u8BF7\u5148\u8FDE\u63A5\u670D\u52A1\u5668" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex flex-wrap gap-1.5", children: applications.map((app) => {
+                var _a;
+                return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Chip, { label: app.name, active: (_a = draft.barkForwardApps) == null ? void 0 : _a.includes(app.id), onClick: () => toggleIdIn("barkForwardApps", app.id) }, app.id);
+              }) })
             ] })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1 text-[13px] font-semibold text-text-soft", children: "\u5916\u89C2" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u4E3B\u9898", hint: "\u8DDF\u968F\u7CFB\u7EDF\u6216\u624B\u52A8\u6307\u5B9A\uFF0C\u7A97\u53E3\u6750\u8D28\u540C\u6B65\u6DF1\u6D45", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex rounded border border-border bg-input p-0.5", children: [["system", "\u8DDF\u968F\u7CFB\u7EDF"], ["light", "\u6D45\u8272"], ["dark", "\u6DF1\u8272"]].map(([value, label]) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            "button",
+            {
+              type: "button",
+              onClick: () => patch({ theme: value }),
+              className: `rounded px-3 py-1 text-[12px] transition-colors ${(draft.theme || "system") === value ? "bg-primary text-white" : "text-text-soft hover:bg-card-hover"}`,
+              children: label
+            },
+            value
+          )) }) })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1 text-[13px] font-semibold text-text-soft", children: "\u6570\u636E\u5B58\u50A8" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-2 py-1", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex-1 rounded border border-border bg-input px-2 py-1.5 text-[12px] text-text-soft break-all", children: storagePath || "-" }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              "button",
+              {
+                onClick: onOpenStoragePath,
+                disabled: !storagePath,
+                className: "h-8 whitespace-nowrap rounded border border-primary px-3 text-[12px] text-primary hover:bg-card-hover disabled:opacity-50 disabled:hover:bg-transparent",
+                children: "\u6253\u5F00\u76EE\u5F55"
+              }
+            )
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "mt-3 border-t border-border pt-2 text-[13px] text-text-muted", children: [
-            "\u7248\u672C\u53F7: ",
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-1 text-[11px] text-text-muted", children: "\u5982\u9700\u8FC1\u79FB\u6570\u636E\uFF0C\u8BF7\u624B\u52A8\u590D\u5236\u6587\u4EF6\u5230\u65B0\u76EE\u5F55" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1 text-[13px] font-semibold text-text-soft", children: "\u901A\u7528" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u6700\u5C0F\u5316\u5230\u7CFB\u7EDF\u6258\u76D8", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.minimizeToTray, onChange: (v) => patch({ minimizeToTray: v }) }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u5F00\u673A\u81EA\u52A8\u542F\u52A8", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.autoLaunch, onChange: (v) => patch({ autoLaunch: v }) }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u542F\u52A8\u65F6\u663E\u793A\u4E3B\u754C\u9762", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.showMainWindowOnStartup, onChange: (v) => patch({ showMainWindowOnStartup: v }) }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "mt-2 border-t border-border-light pt-2 text-[12px] text-text-muted", children: [
+            "\u7248\u672C ",
             /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "font-mono text-text-soft", children: appVersion || "-" })
           ] })
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "shrink-0 flex items-center justify-between gap-3 border-t bg-card-hover-alt px-5 py-3", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `flex-1 min-w-0 break-words text-[14px] font-semibold leading-tight ${(notice == null ? void 0 : notice.type) === "error" ? "text-danger-text" : "text-success-text"}`, children: (notice == null ? void 0 : notice.text) || "" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "shrink-0 flex items-center justify-between gap-3 border-t border-border-light bg-card-hover-alt px-5 py-3", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `flex-1 min-w-0 break-words text-[13px] font-semibold leading-tight ${(notice == null ? void 0 : notice.type) === "error" ? "text-danger-text" : "text-success-text"}`, children: (notice == null ? void 0 : notice.text) || "" }),
         /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex shrink-0 items-center gap-2", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: onTest, disabled: testing, className: "h-9 whitespace-nowrap rounded border px-3 text-[13px] disabled:opacity-50", children: testing ? "\u6D4B\u8BD5\u4E2D..." : "\u6D4B\u8BD5\u8FDE\u63A5" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: onSave, disabled: saving, className: "h-9 whitespace-nowrap rounded bg-primary px-3 text-[13px] text-white hover:bg-primary-hover disabled:opacity-50", children: saving ? "\u4FDD\u5B58\u4E2D..." : "\u4FDD\u5B58" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: onClose, className: "h-9 whitespace-nowrap rounded border px-3 text-[13px]", children: "\u53D6\u6D88" })
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => onTest(draft), disabled: testing, className: "h-9 whitespace-nowrap rounded border border-border bg-card px-3 text-[13px] text-text-soft hover:bg-card-hover disabled:opacity-50", children: testing ? "\u6D4B\u8BD5\u4E2D..." : "\u6D4B\u8BD5\u8FDE\u63A5" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => onSave(draft), disabled: saving, className: "h-9 whitespace-nowrap rounded bg-primary px-4 text-[13px] text-white hover:bg-primary-hover disabled:opacity-50", children: saving ? "\u4FDD\u5B58\u4E2D..." : "\u4FDD\u5B58" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: onClose, className: "h-9 whitespace-nowrap rounded border border-border bg-card px-4 text-[13px] text-text-soft hover:bg-card-hover", children: "\u53D6\u6D88" })
         ] })
       ] })
     ] })
@@ -25024,10 +24965,10 @@ function App() {
     return "text-red-500";
   }, [status]);
   const dotColor = status.connected ? "bg-green-500 ring-green-200" : status.status.includes("\u91CD\u8FDE") ? "bg-amber-500 ring-amber-200" : "bg-red-500 ring-red-200";
-  const onSave = async () => {
+  const onSave = async (draft) => {
     setSaving(true);
     try {
-      const saved = await window.gotifyAPI.saveConfig(config);
+      const saved = await window.gotifyAPI.saveConfig(draft);
       setConfig(saved);
       setSettingsNotice({ text: "\u8BBE\u7F6E\u5DF2\u4FDD\u5B58\uFF0C\u6B63\u5728\u5C1D\u8BD5\u91CD\u8FDE", type: "info" });
       const apps = await window.gotifyAPI.getApplications();
@@ -25040,12 +24981,12 @@ function App() {
       setSaving(false);
     }
   };
-  const onTest = async () => {
+  const onTest = async (draft) => {
     setTesting(true);
     try {
       await window.gotifyAPI.testConnection({
-        serverUrl: config.serverUrl,
-        clientToken: config.clientToken
+        serverUrl: draft.serverUrl,
+        clientToken: draft.clientToken
       });
       setSettingsNotice({ text: "\u8FDE\u63A5\u6D4B\u8BD5\u6210\u529F", type: "info" });
     } catch (error) {
@@ -25273,14 +25214,12 @@ function App() {
         ] })
       ] })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+    settingsOpen ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
       SettingsModal,
       {
-        open: settingsOpen,
         onClose: () => setSettingsOpen(false),
-        config,
+        initialConfig: config,
         appVersion,
-        setConfig,
         onSave,
         onTest,
         testing,
@@ -25294,7 +25233,7 @@ function App() {
         applyingStoragePath,
         storageLockedByEnv
       }
-    )
+    ) : null
   ] });
 }
 var rootElement = document.getElementById("root");

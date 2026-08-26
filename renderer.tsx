@@ -40,13 +40,11 @@ type StorageMeta = { path?: string; lockedByEnv?: boolean };
 type ConnectionStatus = { connected?: boolean; status?: string };
 type SettingsNotice = { text: string; type: "info" | "error" };
 type SettingsModalProps = {
-  open: boolean;
   onClose: () => void;
-  config: Config;
+  initialConfig: Config;
   appVersion: string;
-  setConfig: Dispatch<SetStateAction<Config>>;
-  onSave: () => void;
-  onTest: () => void;
+  onSave: (draft: Config) => void;
+  onTest: (draft: Config) => void;
   testing: boolean;
   saving: boolean;
   notice: SettingsNotice;
@@ -58,6 +56,47 @@ type SettingsModalProps = {
   applyingStoragePath: boolean;
   storageLockedByEnv: boolean;
 };
+
+// 手写 Switch（CP5 S2：约 30 行，不引组件库）。currentColor 走 token。
+function Switch({ checked, onChange, disabled = false, danger = false }: { checked: boolean; onChange: (next: boolean) => void; disabled?: boolean; danger?: boolean }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors focus:outline-none disabled:opacity-40 ${checked ? (danger ? "bg-danger-text" : "bg-primary") : "bg-text-disabled"}`}
+    >
+      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${checked ? "left-[18px]" : "left-0.5"}`} />
+    </button>
+  );
+}
+
+function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full border px-3 py-1 text-[12px] transition-colors ${active ? "border-primary bg-primary text-white" : "border-border bg-input text-text-soft hover:bg-card-hover"}`}
+    >
+      {label}
+    </button>
+  );
+}
+
+// 设置行布局：标签左（13px），控件右，注释下行
+function SettingRow({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-1.5">
+      <div className="min-w-0">
+        <div className="text-[13px] text-text">{label}</div>
+        {hint ? <div className="mt-0.5 text-[11px] leading-snug text-text-muted">{hint}</div> : null}
+      </div>
+      <div className="flex shrink-0 items-center gap-2">{children}</div>
+    </div>
+  );
+}
 type GotifyAPI = {
   getAppVersion: () => Promise<string>;
   getThemeState: () => Promise<{ dark?: boolean }>;
@@ -96,11 +135,9 @@ function formatDate(value) {
 }
 
 function SettingsModal({
-  open,
   onClose,
-  config,
+  initialConfig,
   appVersion,
-  setConfig,
   onSave,
   onTest,
   testing,
@@ -116,80 +153,35 @@ function SettingsModal({
 }: SettingsModalProps) {
   const [showToken, setShowToken] = useState(false);
   const [applications, setApplications] = useState<ApplicationInfo[]>([]);
+  // S10 根治：draft 模型。所有编辑落本地 draft，保存才提交；取消=关闭即弃
+  // （父组件条件挂载保证下次打开从真实 config 重建）。旧实现直接改 App 的
+  // config state，取消后脏值残留。
+  const [draft, setDraft] = useState<Config>({ ...initialConfig });
 
   useEffect(() => {
-    if (open) {
-      window.gotifyAPI.getApplications().then((apps) => {
-        setApplications(Array.isArray(apps) ? apps : []);
-      });
-    }
-  }, [open]);
+    window.gotifyAPI.getApplications().then((apps) => {
+      setApplications(Array.isArray(apps) ? apps : []);
+    });
+  }, []);
 
-  const onServerUrlChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setConfig((prev) => ({ ...prev, serverUrl: event.target.value }));
-  };
-  const onTokenChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setConfig((prev) => ({ ...prev, clientToken: event.target.value }));
-  };
-  const onShowCustomNotificationChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setConfig((prev) => ({ ...prev, showCustomNotification: event.target.checked }));
-  };
-  const onPlaySoundChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setConfig((prev) => ({ ...prev, playSound: event.target.checked }));
-  };
-  const onEnableReconnectChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setConfig((prev) => ({ ...prev, enableReconnect: event.target.checked }));
-  };
-  const onAutoHideChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const checked = event.target.checked;
-    setConfig((prev) => ({ ...prev, notificationAutoHide: checked, notificationNeverClose: checked ? false : prev.notificationNeverClose }));
-  };
-  const onNeverCloseChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const checked = event.target.checked;
-    setConfig((prev) => ({ ...prev, notificationNeverClose: checked, notificationAutoHide: checked ? false : prev.notificationAutoHide }));
-  };
-  const onDurationChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setConfig((prev) => ({ ...prev, notificationDuration: Number(event.target.value || 0) }));
-  };
-  const onArchiveExpiryChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setConfig((prev) => ({ ...prev, archiveExpiryMinutes: Number(event.target.value || 0) }));
-  };
-  const onCodeSmartExpiryChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setConfig((prev) => ({ ...prev, codeSmartExpiry: event.target.checked }));
-  };
-  const onMinimizeToTrayChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setConfig((prev) => ({ ...prev, minimizeToTray: event.target.checked }));
-  };
-  const onShowOnStartupChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setConfig((prev) => ({ ...prev, showMainWindowOnStartup: event.target.checked }));
-  };
-  const onAutoLaunchChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setConfig((prev) => ({ ...prev, autoLaunch: event.target.checked }));
-  };
-  const onBarkUrlChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setConfig((prev) => ({ ...prev, barkServerUrl: event.target.value }));
-  };
-  const onMutedNotificationAppToggle = (id: number) => {
-    setConfig((prev) => {
-      const current = Array.isArray(prev.mutedNotificationApps) ? prev.mutedNotificationApps : [];
-      if (current.includes(id)) {
-        return { ...prev, mutedNotificationApps: current.filter((x) => x !== id) };
-      }
-      return { ...prev, mutedNotificationApps: [...current, id] };
+  const patch = (partial: Partial<Config>) => setDraft((prev) => ({ ...prev, ...partial }));
+  const onServerUrlChange = (event: ChangeEvent<HTMLInputElement>) => patch({ serverUrl: event.target.value });
+  const onTokenChange = (event: ChangeEvent<HTMLInputElement>) => patch({ clientToken: event.target.value });
+  const onBarkUrlChange = (event: ChangeEvent<HTMLInputElement>) => patch({ barkServerUrl: event.target.value });
+  const onAutoHideChange = (checked: boolean) =>
+    patch({ notificationAutoHide: checked, notificationNeverClose: checked ? false : draft.notificationNeverClose });
+  const onNeverCloseChange = (checked: boolean) =>
+    patch({ notificationNeverClose: checked, notificationAutoHide: checked ? false : draft.notificationAutoHide });
+  const onDurationSecondsChange = (event: ChangeEvent<HTMLInputElement>) =>
+    patch({ notificationDuration: Math.round(Number(event.target.value || 1)) * 1000 });
+  const onArchiveMinutesChange = (event: ChangeEvent<HTMLInputElement>) =>
+    patch({ archiveExpiryMinutes: Number(event.target.value || 5) });
+  const toggleIdIn = (key: "mutedNotificationApps" | "barkForwardApps", id: number) =>
+    setDraft((prev) => {
+      const current = Array.isArray(prev[key]) ? prev[key] : [];
+      return { ...prev, [key]: current.includes(id) ? current.filter((x) => x !== id) : [...current, id] };
     });
-  };
-  const onBarkAppToggle = (id: number) => {
-    setConfig((prev) => {
-      const current = Array.isArray(prev.barkForwardApps) ? prev.barkForwardApps : [];
-      if (current.includes(id)) {
-        return { ...prev, barkForwardApps: current.filter((x) => x !== id) };
-      }
-      return { ...prev, barkForwardApps: [...current, id] };
-    });
-  };
-  const onDraftStoragePathChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setDraftStoragePath(event.target.value);
-  };
+
   const onOpenStoragePath = async () => {
     try {
       await window.gotifyAPI.openStoragePath();
@@ -197,201 +189,180 @@ function SettingsModal({
       // ignore
     }
   };
-  if (!open) {
-    return null;
-  }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
-      <div className="absolute inset-0 bg-black/35" onClick={onClose}></div>
-      <div className="relative flex w-[700px] max-h-[86vh] max-w-[92vw] flex-col overflow-hidden rounded-lg bg-panel shadow-2xl">
-        <div className="border-b px-5 py-3 text-[28px] font-bold text-text">Gotify 客户端设置</div>
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 text-[14px]">
-          <div className="flex items-center gap-3">
-            <div className="w-32 text-[14px] font-bold whitespace-nowrap">服务器地址:</div>
-            <input
-              value={config.serverUrl}
-              onChange={onServerUrlChange}
-              placeholder="https://your-gotify.example.com"
-              className="h-9 flex-1 rounded border border-border bg-input text-text px-3 text-[14px] outline-none focus:border-primary"
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-32 text-[14px] font-bold whitespace-nowrap">客户端令牌:</div>
-            <input
-              type={showToken ? "text" : "password"}
-              value={config.clientToken}
-              onChange={onTokenChange}
-              placeholder="Client Token"
-              className="h-9 flex-1 rounded border border-border bg-input text-text px-3 text-[14px] outline-none focus:border-primary"
-            />
-            <button onClick={() => setShowToken((v) => !v)} className="h-9 rounded border px-3 text-[13px]">
-              {showToken ? "隐藏" : "显示"}
-            </button>
-          </div>
-          <div className="rounded border bg-card-hover-alt p-3">
-            <div className="mb-2 text-[15px] font-bold">通知设置</div>
-            <div className="grid grid-cols-2 gap-y-2 text-[14px]">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={config.showCustomNotification} onChange={onShowCustomNotificationChange} />
-                显示自定义弹窗通知
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={config.playSound} onChange={onPlaySoundChange} />
-                播放提示音
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={config.enableReconnect} onChange={onEnableReconnectChange} />
-                启用主动重连
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={config.notificationAutoHide} onChange={onAutoHideChange} />
-                通知自动消失
-              </label>
-            </div>
-            <div className="mt-2">
-              <label className="flex items-center gap-2 text-danger-text text-[14px]">
-                <input type="checkbox" checked={config.notificationNeverClose} onChange={onNeverCloseChange} />
-                永不自动关闭
-              </label>
-            </div>
-            <div className="mt-2 flex items-center gap-2 text-[14px]">
-              <div className="whitespace-nowrap">通知持续时间(毫秒):</div>
+      <div className="absolute inset-0 bg-black/40" onClick={onClose}></div>
+      <div className="relative flex w-[640px] max-h-[86vh] max-w-[92vw] flex-col overflow-hidden rounded-lg bg-panel shadow-2xl">
+        <div className="border-b border-border-light px-5 py-3 text-[18px] font-semibold text-text">设置</div>
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 text-[13px]">
+          <div className="rounded border border-border-light bg-card-hover-alt p-3">
+            <div className="mb-1 text-[13px] font-semibold text-text-soft">服务器</div>
+            <div className="flex items-center gap-3 py-1.5">
+              <div className="w-24 text-[13px] text-text shrink-0">服务器地址</div>
               <input
-                type="number"
-                value={config.notificationDuration}
-                onChange={onDurationChange}
-                min={1000}
-                step={1000}
-                disabled={!config.notificationAutoHide || config.notificationNeverClose}
-                className="h-9 w-28 rounded border border-border bg-input text-text px-2 text-[14px] disabled:bg-card-hover"
+                value={draft.serverUrl}
+                onChange={onServerUrlChange}
+                placeholder="https://your-gotify.example.com"
+                className="h-8 flex-1 rounded border border-border bg-input text-text px-3 text-[13px] outline-none focus:border-primary"
               />
-              <div className="text-text-muted whitespace-nowrap">(仅在自动消失启用时)</div>
             </div>
-            <div className="mt-2 flex items-center gap-2 text-[14px]">
-              <div className="whitespace-nowrap">通知中心存档(分钟):</div>
+            <div className="flex items-center gap-3 py-1.5">
+              <div className="w-24 text-[13px] text-text shrink-0">客户端令牌</div>
               <input
-                type="number"
-                value={config.archiveExpiryMinutes}
-                onChange={onArchiveExpiryChange}
+                type={showToken ? "text" : "password"}
+                value={draft.clientToken}
+                onChange={onTokenChange}
+                placeholder="Client Token"
+                className="h-8 flex-1 rounded border border-border bg-input text-text px-3 text-[13px] outline-none focus:border-primary"
+              />
+              <button onClick={() => setShowToken((v) => !v)} className="h-8 rounded border border-border bg-card px-3 text-[12px] text-text-soft hover:bg-card-hover">
+                {showToken ? "隐藏" : "显示"}
+              </button>
+            </div>
+          </div>
+          <div className="rounded border border-border-light bg-card-hover-alt p-3">
+            <div className="mb-1 text-[13px] font-semibold text-text-soft">通知</div>
+            <SettingRow label="显示自定义弹窗通知">
+              <Switch checked={draft.showCustomNotification} onChange={(v) => patch({ showCustomNotification: v })} />
+            </SettingRow>
+            <SettingRow label="播放提示音">
+              <Switch checked={draft.playSound} onChange={(v) => patch({ playSound: v })} />
+            </SettingRow>
+            <SettingRow label="启用主动重连">
+              <Switch checked={draft.enableReconnect} onChange={(v) => patch({ enableReconnect: v })} />
+            </SettingRow>
+            <SettingRow label="通知自动消失">
+              <Switch checked={draft.notificationAutoHide} onChange={onAutoHideChange} />
+            </SettingRow>
+            <SettingRow label="通知持续时间" hint="仅在自动消失启用时生效">
+              <input
+                type="range"
                 min={1}
-                step={5}
-                className="h-9 w-28 rounded border border-border bg-input text-text px-2 text-[14px]"
+                max={60}
+                step={1}
+                value={Math.max(1, Math.round(draft.notificationDuration / 1000))}
+                onChange={onDurationSecondsChange}
+                disabled={!draft.notificationAutoHide || draft.notificationNeverClose}
+                className="w-40 accent-primary disabled:opacity-40"
               />
-              <div className="text-text-muted whitespace-nowrap">(每条消息在系统通知中心的保留时长)</div>
-            </div>
-            <div className="mt-2">
-              <label className="flex items-center gap-2 text-[14px]">
-                <input type="checkbox" checked={config.codeSmartExpiry} onChange={onCodeSmartExpiryChange} />
-                验证码按短信有效期存档
-              </label>
-              <div className="mt-1 text-[12px] text-text-muted">勾选后验证码消息按短信中的「N分钟」存档，识别不到时回落到上方时长</div>
-            </div>
-            <div className="mt-3">
-              <div className="mb-1 text-[12px] font-semibold text-text-soft">屏蔽弹窗分组:</div>
-              <div className="max-h-24 overflow-y-auto rounded border bg-input p-2">
-                {applications.length === 0 ? (
-                  <div className="text-[12px] text-text-muted">暂无应用分组，请先连接服务器</div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2">
-                    {applications.map((app) => (
-                      <label key={app.id} className="flex items-center gap-2 text-[12px] text-text-soft">
-                        <input
-                          type="checkbox"
-                          checked={config.mutedNotificationApps?.includes(app.id)}
-                          onChange={() => onMutedNotificationAppToggle(app.id)}
-                        />
-                        {app.name}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="mt-1 text-[12px] text-text-muted">选中的分组将不再显示弹窗提醒</div>
+              <span className="w-12 text-right text-[12px] tabular-nums text-text-soft">{Math.max(1, Math.round(draft.notificationDuration / 1000))} 秒</span>
+            </SettingRow>
+            <SettingRow label="永不自动关闭" hint="与「自动消失」互斥">
+              <Switch danger checked={draft.notificationNeverClose} onChange={onNeverCloseChange} />
+            </SettingRow>
+            <SettingRow label="通知中心存档时长" hint="每条消息在系统通知中心的保留时间">
+              <input
+                type="range"
+                min={5}
+                max={240}
+                step={5}
+                value={Math.max(5, draft.archiveExpiryMinutes)}
+                onChange={onArchiveMinutesChange}
+                className="w-40 accent-primary"
+              />
+              <span className="w-14 text-right text-[12px] tabular-nums text-text-soft">{Math.max(5, draft.archiveExpiryMinutes)} 分钟</span>
+            </SettingRow>
+            <SettingRow label="验证码按短信有效期存档" hint="按短信中的「N分钟」存档，识别不到时回落到上方时长">
+              <Switch checked={draft.codeSmartExpiry} onChange={(v) => patch({ codeSmartExpiry: v })} />
+            </SettingRow>
+            <div className="border-t border-border-light pt-2">
+              <div className="mb-1.5 text-[13px] text-text">屏蔽弹窗分组</div>
+              {applications.length === 0 ? (
+                <div className="text-[12px] text-text-muted">暂无应用分组，请先连接服务器</div>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {applications.map((app) => (
+                    <Chip key={app.id} label={app.name} active={draft.mutedNotificationApps?.includes(app.id)} onClick={() => toggleIdIn("mutedNotificationApps", app.id)} />
+                  ))}
+                </div>
+              )}
+              <div className="mt-1 text-[11px] text-text-muted">选中的分组将不再显示弹窗提醒</div>
             </div>
           </div>
-          <div className="rounded border bg-card-hover-alt p-3">
-            <div className="mb-2 text-[15px] font-bold">Bark 消息转发</div>
+          <div className="rounded border border-border-light bg-card-hover-alt p-3">
+            <div className="mb-1 text-[13px] font-semibold text-text-soft">Bark 消息转发</div>
             <div className="space-y-2">
-              <div className="text-[13px] text-text-soft">将收到的消息转发到 iOS Bark App</div>
               <input
-                value={config.barkServerUrl || ""}
+                value={draft.barkServerUrl || ""}
                 onChange={onBarkUrlChange}
                 placeholder="https://api.day.app/YOUR_KEY"
-                className="h-9 w-full rounded border border-border bg-input text-text px-2 text-[13px] outline-none focus:border-primary"
+                className="h-8 w-full rounded border border-border bg-input text-text px-2 text-[13px] outline-none focus:border-primary"
               />
-              <div className="text-[12px] font-semibold text-text-soft">选择要转发的应用分组:</div>
-              <div className="max-h-24 overflow-y-auto rounded border bg-input p-2">
+              <div>
+                <div className="mb-1.5 text-[13px] text-text">要转发的应用分组</div>
                 {applications.length === 0 ? (
                   <div className="text-[12px] text-text-muted">暂无应用分组，请先连接服务器</div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {applications.map((app) => (
-                      <label key={app.id} className="flex items-center gap-2 text-[12px] text-text-soft">
-                        <input
-                          type="checkbox"
-                          checked={config.barkForwardApps?.includes(app.id)}
-                          onChange={() => onBarkAppToggle(app.id)}
-                        />
-                        {app.name}
-                      </label>
+                      <Chip key={app.id} label={app.name} active={draft.barkForwardApps?.includes(app.id)} onClick={() => toggleIdIn("barkForwardApps", app.id)} />
                     ))}
                   </div>
                 )}
               </div>
             </div>
           </div>
-          <div className="rounded border bg-card-hover-alt p-3">
-            <div className="mb-2 text-[15px] font-bold">数据存储</div>
-            <div className="space-y-2">
-              <div className="text-[13px] text-text-soft">当前数据存储路径</div>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 rounded border border-border bg-input px-2 py-1.5 text-[12px] text-text-soft break-all">
-                  {storagePath || "-"}
-                </div>
-                <button
-                  onClick={onOpenStoragePath}
-                  disabled={!storagePath}
-                  className="h-8 whitespace-nowrap rounded border border-primary px-3 text-[12px] text-primary hover:bg-card-hover disabled:opacity-50 disabled:hover:bg-transparent"
-                >
-                  打开目录
-                </button>
+          <div className="rounded border border-border-light bg-card-hover-alt p-3">
+            <div className="mb-1 text-[13px] font-semibold text-text-soft">外观</div>
+            <SettingRow label="主题" hint="跟随系统或手动指定，窗口材质同步深浅">
+              <div className="flex rounded border border-border bg-input p-0.5">
+                {([["system", "跟随系统"], ["light", "浅色"], ["dark", "深色"]] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => patch({ theme: value })}
+                    className={`rounded px-3 py-1 text-[12px] transition-colors ${(draft.theme || "system") === value ? "bg-primary text-white" : "text-text-soft hover:bg-card-hover"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
-              <div className="text-[12px] text-text-muted">如需迁移数据，请手动复制文件到新目录</div>
-            </div>
+            </SettingRow>
           </div>
-          <div className="rounded border bg-card-hover-alt p-3">
-            <div className="mb-2 text-[15px] font-bold">其他设置</div>
-            <div className="space-y-1.5 text-[14px]">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={config.minimizeToTray} onChange={onMinimizeToTrayChange} />
-                最小化到系统托盘
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={config.autoLaunch} onChange={onAutoLaunchChange} />
-                开机自动启动
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={config.showMainWindowOnStartup} onChange={onShowOnStartupChange} />
-                启动时显示主界面
-              </label>
+          <div className="rounded border border-border-light bg-card-hover-alt p-3">
+            <div className="mb-1 text-[13px] font-semibold text-text-soft">数据存储</div>
+            <div className="flex items-center gap-2 py-1">
+              <div className="flex-1 rounded border border-border bg-input px-2 py-1.5 text-[12px] text-text-soft break-all">
+                {storagePath || "-"}
+              </div>
+              <button
+                onClick={onOpenStoragePath}
+                disabled={!storagePath}
+                className="h-8 whitespace-nowrap rounded border border-primary px-3 text-[12px] text-primary hover:bg-card-hover disabled:opacity-50 disabled:hover:bg-transparent"
+              >
+                打开目录
+              </button>
             </div>
-            <div className="mt-3 border-t border-border pt-2 text-[13px] text-text-muted">
-              版本号: <span className="font-mono text-text-soft">{appVersion || "-"}</span>
+            <div className="mt-1 text-[11px] text-text-muted">如需迁移数据，请手动复制文件到新目录</div>
+          </div>
+          <div className="rounded border border-border-light bg-card-hover-alt p-3">
+            <div className="mb-1 text-[13px] font-semibold text-text-soft">通用</div>
+            <SettingRow label="最小化到系统托盘">
+              <Switch checked={draft.minimizeToTray} onChange={(v) => patch({ minimizeToTray: v })} />
+            </SettingRow>
+            <SettingRow label="开机自动启动">
+              <Switch checked={draft.autoLaunch} onChange={(v) => patch({ autoLaunch: v })} />
+            </SettingRow>
+            <SettingRow label="启动时显示主界面">
+              <Switch checked={draft.showMainWindowOnStartup} onChange={(v) => patch({ showMainWindowOnStartup: v })} />
+            </SettingRow>
+            <div className="mt-2 border-t border-border-light pt-2 text-[12px] text-text-muted">
+              版本 <span className="font-mono text-text-soft">{appVersion || "-"}</span>
             </div>
           </div>
         </div>
-        <div className="shrink-0 flex items-center justify-between gap-3 border-t bg-card-hover-alt px-5 py-3">
-          <div className={`flex-1 min-w-0 break-words text-[14px] font-semibold leading-tight ${notice?.type === "error" ? "text-danger-text" : "text-success-text"}`}>
+        <div className="shrink-0 flex items-center justify-between gap-3 border-t border-border-light bg-card-hover-alt px-5 py-3">
+          <div className={`flex-1 min-w-0 break-words text-[13px] font-semibold leading-tight ${notice?.type === "error" ? "text-danger-text" : "text-success-text"}`}>
             {notice?.text || ""}
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <button onClick={onTest} disabled={testing} className="h-9 whitespace-nowrap rounded border px-3 text-[13px] disabled:opacity-50">
+            <button onClick={() => onTest(draft)} disabled={testing} className="h-9 whitespace-nowrap rounded border border-border bg-card px-3 text-[13px] text-text-soft hover:bg-card-hover disabled:opacity-50">
               {testing ? "测试中..." : "测试连接"}
             </button>
-            <button onClick={onSave} disabled={saving} className="h-9 whitespace-nowrap rounded bg-primary px-3 text-[13px] text-white hover:bg-primary-hover disabled:opacity-50">
+            <button onClick={() => onSave(draft)} disabled={saving} className="h-9 whitespace-nowrap rounded bg-primary px-4 text-[13px] text-white hover:bg-primary-hover disabled:opacity-50">
               {saving ? "保存中..." : "保存"}
             </button>
-            <button onClick={onClose} className="h-9 whitespace-nowrap rounded border px-3 text-[13px]">
+            <button onClick={onClose} className="h-9 whitespace-nowrap rounded border border-border bg-card px-4 text-[13px] text-text-soft hover:bg-card-hover">
               取消
             </button>
           </div>
@@ -559,10 +530,10 @@ function App() {
       ? "bg-amber-500 ring-amber-200"
       : "bg-red-500 ring-red-200";
 
-  const onSave = async () => {
+  const onSave = async (draft: Config) => {
     setSaving(true);
     try {
-      const saved = await window.gotifyAPI.saveConfig(config);
+      const saved = await window.gotifyAPI.saveConfig(draft);
       setConfig(saved);
       setSettingsNotice({ text: "设置已保存，正在尝试重连", type: "info" });
       const apps = await window.gotifyAPI.getApplications();
@@ -576,12 +547,12 @@ function App() {
     }
   };
 
-  const onTest = async () => {
+  const onTest = async (draft: Config) => {
     setTesting(true);
     try {
       await window.gotifyAPI.testConnection({
-        serverUrl: config.serverUrl,
-        clientToken: config.clientToken,
+        serverUrl: draft.serverUrl,
+        clientToken: draft.clientToken,
       });
       setSettingsNotice({ text: "连接测试成功", type: "info" });
     } catch (error) {
@@ -825,25 +796,25 @@ function App() {
           </div>
         </div>
       </div>
-      <SettingsModal
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        config={config}
-        appVersion={appVersion}
-        setConfig={setConfig}
-        onSave={onSave}
-        onTest={onTest}
-        testing={testing}
-        saving={saving}
-        notice={settingsNotice}
-        storagePath={storagePath}
-        draftStoragePath={draftStoragePath}
-        setDraftStoragePath={setDraftStoragePath}
-        onPickStoragePath={onPickStoragePath}
-        onApplyStoragePath={onApplyStoragePath}
-        applyingStoragePath={applyingStoragePath}
-        storageLockedByEnv={storageLockedByEnv}
-      />
+      {settingsOpen ? (
+        <SettingsModal
+          onClose={() => setSettingsOpen(false)}
+          initialConfig={config}
+          appVersion={appVersion}
+          onSave={onSave}
+          onTest={onTest}
+          testing={testing}
+          saving={saving}
+          notice={settingsNotice}
+          storagePath={storagePath}
+          draftStoragePath={draftStoragePath}
+          setDraftStoragePath={setDraftStoragePath}
+          onPickStoragePath={onPickStoragePath}
+          onApplyStoragePath={onApplyStoragePath}
+          applyingStoragePath={applyingStoragePath}
+          storageLockedByEnv={storageLockedByEnv}
+        />
+      ) : null}
     </div>
   );
 }
