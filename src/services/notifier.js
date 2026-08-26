@@ -178,10 +178,10 @@ function buildCustomNotificationHtml({ iconDataUrl, title, subtitle, body, id, v
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; padding: 0; overflow: hidden; background: transparent; font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei", sans-serif; }
-    /* 二轮 S4 修正：卡全出血方角——DWM 不给 frameless+transparent 窗做系统圆角，
-       圆角卡会在直角窗面上露出四角材质+投影被窗缘裁成直角圈（用户实证）。
-       材质面=卡面完全重合，靠 DWM acrylic 自带 luminosity 边收边。 */
-    .card { width: ${NOTIFICATION_WIDTH}px; background: ${c.card}; color: ${c.title}; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; animation: popup .18s ease-out; cursor: pointer; transition: background 0.2s; }
+    /* 二轮 S4 修正+M4 优雅版：applySystemRoundedCorners 给窗 DWM 8px 圆角后，
+       卡面恢复 8px 圆角与窗角重合（koffi 失败时窗为方角，卡圆角会在四角露出
+       材质方块——可接受降级）。仍禁 CSS 投影（窗缘裁切直角圈，electron.md E2）。 */
+    .card { width: ${NOTIFICATION_WIDTH}px; border-radius: 8px; background: ${c.card}; color: ${c.title}; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; animation: popup .18s ease-out; cursor: pointer; transition: background 0.2s; }
     .card:hover { background: ${c.cardHover}; }
     @keyframes popup { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     .meta { display: flex; align-items: center; gap: 8px; }
@@ -331,6 +331,8 @@ function showCustomNotification(message, config) {
   };
 
   notificationWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  // 系统圆角（成则卡恢复 8px 圆角与 DWM luminosity 边吻合）
+  applySystemRoundedCorners(notificationWindow);
   notificationWindow.loadURL(`data:text/html;charset=UTF-8,${encodeURIComponent(html)}`);
   notificationWindow.once("ready-to-show", () => notificationWindow?.showInactive());
 
@@ -340,6 +342,48 @@ function showCustomNotification(message, config) {
   }
 
   activeNotifications.push(notificationData);
+}
+
+// 二轮 M4 优雅圆角：DWMWA_WINDOW_CORNER_PREFERENCE(33)=DWMWCP_ROUND(2) 给
+// frameless+transparent 窗系统圆角（Win11 自动圆角不覆盖此类窗，electron.md E2）。
+// koffi(FFI, N-API) 从 dwmapi.dll 直调；加载失败静默回退方角（无 crash 面）。
+// 生产 asar 需 --unpack-dir node_modules/koffi（.node 不能从 asar 内加载）。
+let dwmSetWindowAttribute = null;
+function loadDwmApi() {
+  if (dwmSetWindowAttribute !== null) {
+    return dwmSetWindowAttribute;
+  }
+  if (process.platform !== "win32") {
+    return (dwmSetWindowAttribute = false);
+  }
+  try {
+    const koffi = require("koffi");
+    const dwm = koffi.load("dwmapi.dll");
+    dwmSetWindowAttribute = dwm.func("long __stdcall DwmSetWindowAttribute(intptr_t hwnd, uint32_t attr, void* pv, uint32_t cb)");
+  } catch (error) {
+    console.error("[Notify] koffi/dwmapi 不可用，弹卡回退方角:", error?.message || error);
+    dwmSetWindowAttribute = false;
+  }
+  return dwmSetWindowAttribute;
+}
+
+function applySystemRoundedCorners(window) {
+  const setAttr = loadDwmApi();
+  if (!setAttr || !window || window.isDestroyed()) {
+    return;
+  }
+  try {
+    const handle = window.getNativeWindowHandle();
+    const hwnd = process.arch === "x64" ? handle.readBigInt64LE(0) : BigInt(handle.readInt32LE(0));
+    const preference = Buffer.alloc(4);
+    preference.writeInt32LE(2, 0); // DWMWCP_ROUND（系统 8px）
+    const hr = setAttr(hwnd, 33, preference, 4);
+    if (hr !== 0) {
+      console.error("[Notify] corner preference hr=0x" + (hr >>> 0).toString(16));
+    }
+  } catch (error) {
+    console.error("[Notify] corner preference failed:", error?.message || error);
+  }
 }
 
 function registerCardIpc() {
