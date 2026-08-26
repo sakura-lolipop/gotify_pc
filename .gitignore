@@ -20,3 +20,9 @@ message_history.json
 
 .env
 .env.*
+
+# 本地工作台账（内部诊断/坑账/任务，不入公开 fork）
+task.md
+electron.md
+ui-scan-*.md
+layer-scan-*.md
