@@ -1,4 +1,5 @@
 const { BrowserWindow, Notification, clipboard, screen, ipcMain, nativeTheme } = require("electron");
+const { avatarColor, avatarLabel } = require("./app-avatar");
 
 // Single home of the app identity used for Windows notifications. The
 // Start Menu shortcut must carry this exact AUMID as its
@@ -147,7 +148,8 @@ const CARD_PALETTE = {
     closeHoverBg: "rgba(100, 116, 139, 0.22)",
     closeHover: "#e2e8f0",
     code: "#6ee7b7",
-    codeBg: "rgba(34, 197, 94, 0.18)"
+    codeBg: "rgba(34, 197, 94, 0.18)",
+    act: "#93c5fd"
   },
   light: {
     card: "rgba(255, 255, 255, 0.5)",
@@ -159,11 +161,12 @@ const CARD_PALETTE = {
     closeHoverBg: "rgba(136, 136, 136, 0.16)",
     closeHover: "#333333",
     code: "#157347",
-    codeBg: "rgba(34, 197, 94, 0.16)"
+    codeBg: "rgba(34, 197, 94, 0.16)",
+    act: "#1d4ed8"
   }
 };
 
-function buildCustomNotificationHtml({ iconDataUrl, title, subtitle, body, id, verificationCode }) {
+function buildCustomNotificationHtml({ title, subtitle, body, id, verificationCode, appid }) {
   const escapeHtml = (text) =>
     String(text || "")
       .replaceAll("&", "&amp;")
@@ -171,6 +174,8 @@ function buildCustomNotificationHtml({ iconDataUrl, title, subtitle, body, id, v
       .replaceAll(">", "&gt;");
   const code = verificationCode || "";
   const c = nativeTheme.shouldUseDarkColors ? CARD_PALETTE.dark : CARD_PALETTE.light;
+  const avColor = avatarColor(appid);
+  const avLabel = escapeHtml(avatarLabel(subtitle, appid));
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -185,8 +190,7 @@ function buildCustomNotificationHtml({ iconDataUrl, title, subtitle, body, id, v
     .card:hover { background: ${c.cardHover}; }
     @keyframes popup { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     .meta { display: flex; align-items: center; gap: 8px; }
-    .avatar { width: 20px; height: 20px; border-radius: 5px; overflow: hidden; flex-shrink: 0; }
-    .avatar img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .avatar { width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #ffffff; }
     .app-name { font-size: 12px; color: ${c.app}; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .time { font-size: 11px; color: ${c.close}; font-variant-numeric: tabular-nums; flex-shrink: 0; }
     .close { border: none; background: transparent; color: ${c.close}; width: 28px; height: 28px; margin: -8px -8px 0 0; cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -196,18 +200,25 @@ function buildCustomNotificationHtml({ iconDataUrl, title, subtitle, body, id, v
     .body { font-size: 13px; line-height: 1.4; color: ${c.body}; white-space: pre-line; max-height: 72px; overflow: hidden; }
     .code { font-family: Consolas, "Cascadia Mono", monospace; font-variant-numeric: tabular-nums; color: ${c.code}; background: ${c.codeBg}; border-radius: 4px; padding: 0 5px; }
     .code.ok { color: #ffffff; background: #22c55e; }
+    .actions { display: ${code ? "flex" : "none"}; gap: 14px; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(128, 128, 128, 0.22); }
+    .act { background: none; border: none; padding: 2px 4px; font-size: 12px; color: ${c.act}; cursor: pointer; border-radius: 4px; }
+    .act:hover { background: ${c.closeHoverBg}; }
   </style>
 </head>
 <body>
   <div id="card" class="card">
     <div class="meta">
-      <div class="avatar"><img src="${iconDataUrl}" alt="icon" /></div>
+      <div class="avatar" style="background:${avColor}">${avLabel}</div>
       <div class="app-name">${escapeHtml(subtitle)}</div>
       <div class="time" id="time"></div>
       <button id="close" class="close" title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 18L18 6M6 6l12 12"/></svg></button>
     </div>
     <div class="title">${escapeHtml(title)}</div>
     <div class="body" id="body"></div>
+    <div class="actions">
+      <button class="act" id="act-copy">复制验证码</button>
+      <button class="act" id="act-open">打开消息列表</button>
+    </div>
   </div>
   <script>
     const { ipcRenderer } = require("electron");
@@ -242,19 +253,39 @@ function buildCustomNotificationHtml({ iconDataUrl, title, subtitle, body, id, v
 
     card.addEventListener("click", () => {
       if (verificationCode) {
-        ipcRenderer.send("custom-notification-copy-code", { id: "${id}", code: verificationCode });
-        const chips = document.querySelectorAll(".code");
-        chips.forEach((chip) => {
-          chip.innerText = "已复制";
-          chip.classList.add("ok");
-        });
-        setTimeout(() => {
-          ipcRenderer.send("custom-notification-close", "${id}");
-        }, 1500);
+        copyCodeWithFeedback();
       } else {
         ipcRenderer.send("custom-notification-open-main", "${id}");
       }
     });
+
+    // 二轮 M4：action 行显式按钮（点卡=复制，按钮=精确意图）
+    const copyCodeWithFeedback = () => {
+      ipcRenderer.send("custom-notification-copy-code", { id: "${id}", code: verificationCode });
+      document.querySelectorAll(".code").forEach((chip) => {
+        chip.innerText = "已复制";
+        chip.classList.add("ok");
+      });
+      const actCopy = document.getElementById("act-copy");
+      if (actCopy) actCopy.innerText = "已复制";
+      setTimeout(() => {
+        ipcRenderer.send("custom-notification-close", "${id}");
+      }, 1500);
+    };
+    const actCopyBtn = document.getElementById("act-copy");
+    if (actCopyBtn) {
+      actCopyBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        copyCodeWithFeedback();
+      });
+    }
+    const actOpenBtn = document.getElementById("act-open");
+    if (actOpenBtn) {
+      actOpenBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        ipcRenderer.send("custom-notification-open-main", "${id}");
+      });
+    }
 
     card.addEventListener("mouseenter", () => {
       ipcRenderer.send("custom-notification-pause-timer", "${id}");
@@ -295,8 +326,7 @@ function showCustomNotification(message, config) {
 
   const verificationCode = extractVerificationCode(title, message.message);
 
-  const iconDataUrl = getAppIcon().resize({ width: 64, height: 64 }).toDataURL();
-  const html = buildCustomNotificationHtml({ iconDataUrl, title, subtitle, body, id, verificationCode });
+  const html = buildCustomNotificationHtml({ title, subtitle, body, id, verificationCode, appid: message.appid });
 
   const notificationWindow = new BrowserWindow({
     width: NOTIFICATION_WIDTH,

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, Dispatch, SetStateAction } from "react";
 import { createRoot } from "react-dom/client";
 import { IconGear, IconMore, IconStarOutline, IconStarFilled, IconClearText, IconInbox, IconSearch } from "./renderer-icons";
+import { avatarColor, avatarLabel } from "./src/services/app-avatar";
 
 const DEFAULT_CONFIG = {
   serverUrl: "",
@@ -87,13 +88,14 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
 
 // 设置行布局：标签左（13px），控件右，注释下行
 function SettingRow({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  // 二轮 M5：控件列定宽齐右——开关/滑杆/数值右缘对齐，扫读线不跳
   return (
     <div className="flex items-center justify-between gap-3 py-1.5">
       <div className="min-w-0">
         <div className="text-[13px] text-text">{label}</div>
         {hint ? <div className="mt-0.5 text-[11px] leading-snug text-text-muted">{hint}</div> : null}
       </div>
-      <div className="flex shrink-0 items-center gap-2">{children}</div>
+      <div className="flex w-44 shrink-0 items-center justify-end gap-2">{children}</div>
     </div>
   );
 }
@@ -246,7 +248,7 @@ function SettingsModal({
         <div className="border-b border-border-light px-5 py-3 text-[18px] font-semibold text-text">设置</div>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 text-[13px]">
           <div className="rounded border border-border-light bg-card-hover-alt p-3">
-            <div className="mb-1 text-[13px] font-semibold text-text-soft">服务器</div>
+            <div className="mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted">服务器</div>
             <div className="flex items-center gap-3 py-1.5">
               <div className="w-24 text-[13px] text-text shrink-0">服务器地址</div>
               <input
@@ -271,7 +273,7 @@ function SettingsModal({
             </div>
           </div>
           <div className="rounded border border-border-light bg-card-hover-alt p-3">
-            <div className="mb-1 text-[13px] font-semibold text-text-soft">通知</div>
+            <div className="mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted">通知</div>
             <SettingRow label="显示自定义弹窗通知">
               <Switch checked={draft.showCustomNotification} onChange={(v) => patch({ showCustomNotification: v })} />
             </SettingRow>
@@ -330,7 +332,7 @@ function SettingsModal({
             </div>
           </div>
           <div className="rounded border border-border-light bg-card-hover-alt p-3">
-            <div className="mb-1 text-[13px] font-semibold text-text-soft">Bark 消息转发</div>
+            <div className="mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted">Bark 消息转发</div>
             <div className="space-y-2">
               <input
                 value={draft.barkServerUrl || ""}
@@ -353,7 +355,7 @@ function SettingsModal({
             </div>
           </div>
           <div className="rounded border border-border-light bg-card-hover-alt p-3">
-            <div className="mb-1 text-[13px] font-semibold text-text-soft">外观</div>
+            <div className="mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted">外观</div>
             <SettingRow label="主题" hint="跟随系统或手动指定，窗口材质同步深浅">
               <div className="flex rounded border border-border bg-input p-0.5">
                 {([["system", "跟随系统"], ["light", "浅色"], ["dark", "深色"]] as const).map(([value, label]) => (
@@ -370,7 +372,7 @@ function SettingsModal({
             </SettingRow>
           </div>
           <div className="rounded border border-border-light bg-card-hover-alt p-3">
-            <div className="mb-1 text-[13px] font-semibold text-text-soft">数据存储</div>
+            <div className="mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted">数据存储</div>
             <div className="flex items-center gap-2 py-1">
               <div className="flex-1 rounded border border-border bg-input px-2 py-1.5 text-[12px] text-text-soft break-all">
                 {storagePath || "-"}
@@ -386,7 +388,7 @@ function SettingsModal({
             <div className="mt-1 text-[11px] text-text-muted">如需迁移数据，请手动复制文件到新目录</div>
           </div>
           <div className="rounded border border-border-light bg-card-hover-alt p-3">
-            <div className="mb-1 text-[13px] font-semibold text-text-soft">通用</div>
+            <div className="mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted">通用</div>
             <SettingRow label="最小化到系统托盘">
               <Switch checked={draft.minimizeToTray} onChange={(v) => patch({ minimizeToTray: v })} />
             </SettingRow>
@@ -468,6 +470,13 @@ function MessageCard({ item, appLabel, onToggleFavorite, verificationCode }: { i
   return (
     <div className="group flex gap-3 px-4 py-2 hover:bg-layer-hover">
       {priorityColor ? <div className={`w-1 shrink-0 rounded-full ${priorityColor}`}></div> : null}
+      <div
+        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[13px] font-semibold text-white"
+        style={{ backgroundColor: avatarColor(item.appid) }}
+        title={appLabel || `应用 #${item.appid || 0}`}
+      >
+        {avatarLabel(appLabel, item.appid)}
+      </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
           <div className="min-w-0 flex-1 truncate">
@@ -532,6 +541,14 @@ function App() {
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [confirmClearArmed, setConfirmClearArmed] = useState(false);
   const [codeMap, setCodeMap] = useState<Map<string, string>>(new Map());
+  const [groupMenuOpen, setGroupMenuOpen] = useState(false);
+  // 二轮 M3：宽窗两列（断点 JS 驱动，≥1000px），布局吃空间不放大字号
+  const [wide, setWide] = useState(() => (typeof window !== "undefined" ? window.innerWidth >= 1000 : false));
+  useEffect(() => {
+    const onResize = () => setWide(window.innerWidth >= 1000);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     // CP6：.dark 类的挂/摘只听 nativeTheme 下推（单一事实，含手动覆盖的解析结果）
@@ -824,17 +841,35 @@ function App() {
             </button>
           ) : null}
         </div>
-        <select
-          value={selectedAppId}
-          onChange={(event: ChangeEvent<HTMLSelectElement>) => setSelectedAppId(event.target.value)}
-          className="h-8 rounded-md border border-border bg-input px-2 text-[12px] text-text-soft"
-        >
-          {applicationOptions.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
+        {/* 二轮 M1：分组下拉自绘（裸 select 深色下是全场最丑元素） */}
+        <div className="relative">
+          <button
+            onClick={() => setGroupMenuOpen((prev) => !prev)}
+            className="flex h-8 items-center gap-1 rounded-md border border-border bg-input px-2.5 text-[12px] text-text-soft hover:border-primary focus:outline-none"
+          >
+            <span className="max-w-[120px] truncate">{applicationOptions.find((o) => String(o.id) === selectedAppId)?.name || "全部分组"}</span>
+            <IconMore className="h-3 w-3 rotate-90 text-text-muted" />
+          </button>
+          {groupMenuOpen ? (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setGroupMenuOpen(false)} />
+              <div className="scroll-thin absolute left-0 top-full z-50 mt-1.5 max-h-64 min-w-[150px] overflow-y-auto rounded-md border border-border bg-panel py-1 shadow-lg">
+                {applicationOptions.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setSelectedAppId(String(item.id));
+                      setGroupMenuOpen(false);
+                    }}
+                    className={`block w-full px-4 py-1.5 text-left text-[13px] hover:bg-card-hover ${String(item.id) === selectedAppId ? "font-semibold text-primary" : "text-text-soft"}`}
+                  >
+                    {item.name}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : null}
+        </div>
         <div className="flex-1" />
         <button
           onClick={() => setSettingsOpen(true)}
@@ -912,15 +947,17 @@ function App() {
             groupedMessages.map((group) => (
               <div key={group.label}>
                 <div className="sticky top-0 z-10 bg-layer px-4 py-1 text-[11px] text-text-muted backdrop-blur-sm">{group.label}</div>
-                {group.items.map((item) => (
-                  <MessageCard
-                    key={`${item.id}-${item.date}`}
-                    item={item}
-                    appLabel={getAppLabel(item.appid)}
-                    onToggleFavorite={onToggleFavorite}
-                    verificationCode={codeMap.get(String(item.id))}
-                  />
-                ))}
+                <div className={wide ? "grid grid-cols-2 gap-x-2" : ""}>
+                  {group.items.map((item) => (
+                    <MessageCard
+                      key={`${item.id}-${item.date}`}
+                      item={item}
+                      appLabel={getAppLabel(item.appid)}
+                      onToggleFavorite={onToggleFavorite}
+                      verificationCode={codeMap.get(String(item.id))}
+                    />
+                  ))}
+                </div>
               </div>
             ))
           )}
