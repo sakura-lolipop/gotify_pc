@@ -399,7 +399,10 @@ function SettingsModal({
 
 function MessageCard({ item, appLabel, onToggleFavorite }: { item: MessageItem; appLabel?: string; onToggleFavorite: (id: number) => void }) {
   const [expanded, setExpanded] = useState(false);
-  const priorityColor = item.priority >= 8 ? "bg-red-500" : item.priority >= 4 ? "bg-blue-500" : "bg-green-500";
+  // 密度重排（ui-scan F1-F6）：默认优先级不画条——满屏绿条是噪音，只有
+  // 提升过的优先级（>=4）才值得用颜色占用户一眼；hover 走中性灰非蓝。
+  const priority = Number(item.priority || 0);
+  const priorityColor = priority >= 8 ? "bg-red-500" : priority >= 4 ? "bg-blue-500" : "";
   const rawMessage = String(item.message || "");
   const lines = rawMessage.split("\n");
   const maxLines = 4;
@@ -416,11 +419,11 @@ function MessageCard({ item, appLabel, onToggleFavorite }: { item: MessageItem; 
   }, [rawMessage, overLineLimit]);
   const visibleMessage = expanded || !canCollapse ? rawMessage : collapsedText;
   return (
-    <div className="flex gap-3 border-b bg-white px-4 py-3 hover:bg-blue-50">
-      <div className={`w-1 rounded-full ${priorityColor}`}></div>
+    <div className="flex gap-3 border-b bg-white px-4 py-2 hover:bg-slate-50">
+      {priorityColor ? <div className={`w-1 shrink-0 rounded-full ${priorityColor}`}></div> : null}
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <div className="truncate text-[20px] font-bold text-slate-800">{item.title || "无标题"}</div>
+          <div className="truncate text-[15px] font-semibold text-slate-800">{item.title || "无标题"}</div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => item.id && onToggleFavorite(item.id)}
@@ -428,7 +431,7 @@ function MessageCard({ item, appLabel, onToggleFavorite }: { item: MessageItem; 
               title={item.favorite ? "取消收藏" : "收藏"}
             >
               {item.favorite ? (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5 text-amber-400">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-amber-400">
                   <path
                     fillRule="evenodd"
                     d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
@@ -436,7 +439,7 @@ function MessageCard({ item, appLabel, onToggleFavorite }: { item: MessageItem; 
                   />
                 </svg>
               ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -445,13 +448,13 @@ function MessageCard({ item, appLabel, onToggleFavorite }: { item: MessageItem; 
                 </svg>
               )}
             </button>
-            <div className="whitespace-nowrap text-[14px] text-slate-400">{formatDate(item.date)}</div>
+            <div className="whitespace-nowrap text-[12px] text-slate-400">{formatDate(item.date)}</div>
           </div>
         </div>
-        <div className="mt-1 text-[14px] text-slate-500">{appLabel || `应用 #${item.appid || 0}`}</div>
-        <div className="mt-1 text-[16px] text-slate-700 whitespace-pre-wrap break-words">{visibleMessage}</div>
+        <div className="mt-0.5 text-[12px] text-slate-400">{appLabel || `应用 #${item.appid || 0}`}</div>
+        <div className="mt-1 text-[13px] text-slate-700 whitespace-pre-wrap break-words">{visibleMessage}</div>
         {canCollapse ? (
-          <button onClick={() => setExpanded((prev) => !prev)} className="mt-1 text-[13px] text-blue-600 hover:text-blue-700">
+          <button onClick={() => setExpanded((prev) => !prev)} className="mt-0.5 text-[12px] text-blue-600 hover:text-blue-700">
             {expanded ? "收起" : "展开"}
           </button>
         ) : null}
@@ -756,7 +759,21 @@ function App() {
       <div className="flex min-h-0 flex-1 flex-col p-3 pt-0">
         <div className="scroll-thin min-h-0 flex-1 overflow-y-auto rounded border bg-white">
           {visibleMessages.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-slate-400">暂无消息</div>
+            <div className="flex h-full flex-col items-center justify-center gap-2 py-16 text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.2} stroke="currentColor" className="h-10 w-10 text-slate-300">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21.75 9v.906a2.25 2.25 0 01-1.183 1.981l-6.478 3.488M2.25 9v.906a2.25 2.25 0 001.183 1.981l6.478 3.488m8.839 0a2.25 2.25 0 011.183-1.981M3.75 20.25l3.99-2.147M12 3.75c-1.5 0-3 .75-3 3v1.626A5.993 5.993 0 019 10.5c0 .984.237 1.916.66 2.74L6.75 15.75c-1.5-1.5-2.25-6-2.25-6V6.75c0-1.5 1.5-3 3-3h9c1.5 0 3 1.5 3 3v.906M12 3.75c1.5 0 3 .75 3 3v1.626c0 2.25.75 4.5 2.25 6l-2.946 2.228A8.966 8.966 0 0112 21.75c-1.06 0-2.09-.184-3.046-.526m6.796-6.796L12 15.75"
+                />
+              </svg>
+              <div className="text-[14px]">
+                {showFavorites ? "暂无收藏消息" : searchText ? `没有匹配「${searchText}」的消息` : "暂无消息"}
+              </div>
+              <div className="text-[12px] text-slate-300">
+                {showFavorites ? "点击消息右侧星标即可收藏" : searchText ? "试试清空搜索词或切换分组" : "连接服务器后，推送的消息会显示在这里"}
+              </div>
+            </div>
           ) : (
             visibleMessages.map((item) => (
               <MessageCard

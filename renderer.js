@@ -24813,7 +24813,8 @@ function SettingsModal({
 }
 function MessageCard({ item, appLabel, onToggleFavorite }) {
   const [expanded, setExpanded] = (0, import_react.useState)(false);
-  const priorityColor = item.priority >= 8 ? "bg-red-500" : item.priority >= 4 ? "bg-blue-500" : "bg-green-500";
+  const priority = Number(item.priority || 0);
+  const priorityColor = priority >= 8 ? "bg-red-500" : priority >= 4 ? "bg-blue-500" : "";
   const rawMessage = String(item.message || "");
   const lines = rawMessage.split("\n");
   const maxLines = 4;
@@ -24829,11 +24830,11 @@ function MessageCard({ item, appLabel, onToggleFavorite }) {
     return `${merged.slice(0, maxChars)}...`;
   }, [rawMessage, overLineLimit]);
   const visibleMessage = expanded || !canCollapse ? rawMessage : collapsedText;
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex gap-3 border-b bg-white px-4 py-3 hover:bg-blue-50", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `w-1 rounded-full ${priorityColor}` }),
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex gap-3 border-b bg-white px-4 py-2 hover:bg-slate-50", children: [
+    priorityColor ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `w-1 shrink-0 rounded-full ${priorityColor}` }) : null,
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "min-w-0 flex-1", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-start justify-between gap-2", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "truncate text-[20px] font-bold text-slate-800", children: item.title || "\u65E0\u6807\u9898" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "truncate text-[15px] font-semibold text-slate-800", children: item.title || "\u65E0\u6807\u9898" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-2", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
             "button",
@@ -24841,14 +24842,14 @@ function MessageCard({ item, appLabel, onToggleFavorite }) {
               onClick: () => item.id && onToggleFavorite(item.id),
               className: "text-slate-400 hover:text-amber-400 focus:outline-none",
               title: item.favorite ? "\u53D6\u6D88\u6536\u85CF" : "\u6536\u85CF",
-              children: item.favorite ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className: "h-5 w-5 text-amber-400", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              children: item.favorite ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className: "h-4 w-4 text-amber-400", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                 "path",
                 {
                   fillRule: "evenodd",
                   d: "M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z",
                   clipRule: "evenodd"
                 }
-              ) }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: "h-5 w-5", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              ) }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: "h-4 w-4", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                 "path",
                 {
                   strokeLinecap: "round",
@@ -24858,12 +24859,12 @@ function MessageCard({ item, appLabel, onToggleFavorite }) {
               ) })
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "whitespace-nowrap text-[14px] text-slate-400", children: formatDate(item.date) })
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "whitespace-nowrap text-[12px] text-slate-400", children: formatDate(item.date) })
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-1 text-[14px] text-slate-500", children: appLabel || `\u5E94\u7528 #${item.appid || 0}` }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-1 text-[16px] text-slate-700 whitespace-pre-wrap break-words", children: visibleMessage }),
-      canCollapse ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => setExpanded((prev) => !prev), className: "mt-1 text-[13px] text-blue-600 hover:text-blue-700", children: expanded ? "\u6536\u8D77" : "\u5C55\u5F00" }) : null
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-0.5 text-[12px] text-slate-400", children: appLabel || `\u5E94\u7528 #${item.appid || 0}` }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-1 text-[13px] text-slate-700 whitespace-pre-wrap break-words", children: visibleMessage }),
+      canCollapse ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => setExpanded((prev) => !prev), className: "mt-0.5 text-[12px] text-blue-600 hover:text-blue-700", children: expanded ? "\u6536\u8D77" : "\u5C55\u5F00" }) : null
     ] })
   ] });
 }
@@ -25138,7 +25139,18 @@ function App() {
     ] }),
     banner ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "bg-blue-50 px-3 py-2 text-[14px] text-blue-700", children: banner }) : null,
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex min-h-0 flex-1 flex-col p-3 pt-0", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "scroll-thin min-h-0 flex-1 overflow-y-auto rounded border bg-white", children: visibleMessages.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex h-full items-center justify-center text-slate-400", children: "\u6682\u65E0\u6D88\u606F" }) : visibleMessages.map((item) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "scroll-thin min-h-0 flex-1 overflow-y-auto rounded border bg-white", children: visibleMessages.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex h-full flex-col items-center justify-center gap-2 py-16 text-slate-400", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.2, stroke: "currentColor", className: "h-10 w-10 text-slate-300", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "path",
+          {
+            strokeLinecap: "round",
+            strokeLinejoin: "round",
+            d: "M21.75 9v.906a2.25 2.25 0 01-1.183 1.981l-6.478 3.488M2.25 9v.906a2.25 2.25 0 001.183 1.981l6.478 3.488m8.839 0a2.25 2.25 0 011.183-1.981M3.75 20.25l3.99-2.147M12 3.75c-1.5 0-3 .75-3 3v1.626A5.993 5.993 0 019 10.5c0 .984.237 1.916.66 2.74L6.75 15.75c-1.5-1.5-2.25-6-2.25-6V6.75c0-1.5 1.5-3 3-3h9c1.5 0 3 1.5 3 3v.906M12 3.75c1.5 0 3 .75 3 3v1.626c0 2.25.75 4.5 2.25 6l-2.946 2.228A8.966 8.966 0 0112 21.75c-1.06 0-2.09-.184-3.046-.526m6.796-6.796L12 15.75"
+          }
+        ) }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[14px]", children: showFavorites ? "\u6682\u65E0\u6536\u85CF\u6D88\u606F" : searchText ? `\u6CA1\u6709\u5339\u914D\u300C${searchText}\u300D\u7684\u6D88\u606F` : "\u6682\u65E0\u6D88\u606F" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[12px] text-slate-300", children: showFavorites ? "\u70B9\u51FB\u6D88\u606F\u53F3\u4FA7\u661F\u6807\u5373\u53EF\u6536\u85CF" : searchText ? "\u8BD5\u8BD5\u6E05\u7A7A\u641C\u7D22\u8BCD\u6216\u5207\u6362\u5206\u7EC4" : "\u8FDE\u63A5\u670D\u52A1\u5668\u540E\uFF0C\u63A8\u9001\u7684\u6D88\u606F\u4F1A\u663E\u793A\u5728\u8FD9\u91CC" })
+      ] }) : visibleMessages.map((item) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
         MessageCard,
         {
           item,
