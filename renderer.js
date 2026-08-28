@@ -24934,7 +24934,7 @@ function MessageCard({ item, appLabel, onToggleFavorite, verificationCode }) {
           {
             onClick: onCopyCode,
             title: copied ? "\u5DF2\u590D\u5236" : "\u70B9\u51FB\u590D\u5236\u9A8C\u8BC1\u7801",
-            className: "mx-0.5 rounded bg-black/[0.05] px-1.5 py-px font-mono text-[13px] tabular-nums text-text hover:bg-black/[0.09] dark:bg-white/[0.08] dark:hover:bg-white/[0.14]",
+            className: "mx-0.5 rounded bg-black/[0.05] px-1.5 py-px [font-family:'Cascadia_Mono',Consolas,monospace] text-[13px] tabular-nums text-text hover:bg-black/[0.09] dark:bg-white/[0.08] dark:hover:bg-white/[0.14]",
             children: copied ? "\u5DF2\u590D\u5236 \u2713" : part.text
           },
           index
