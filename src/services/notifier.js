@@ -122,12 +122,18 @@ function closeCustomNotificationWindow(windowId) {
   }
 }
 
+// 动态窗高（S4）后固定 96 常量排位失真：高卡（≤140）按 96+10 栈距排会相互
+// 重叠、底卡 resize 时从左上角锚定向下扩探进任务栏。自底向上按各窗实际
+// 高度累计排位；resize/close 后重排全体。
 function repositionNotifications() {
   const workArea = screen.getPrimaryDisplay().workArea;
-  activeNotifications.forEach((n, i) => {
+  let bottomEdge = workArea.y + workArea.height - 6;
+  activeNotifications.forEach((n) => {
     if (n.window && !n.window.isDestroyed()) {
-      const newY = workArea.y + workArea.height - (NOTIFICATION_HEIGHT + NOTIFICATION_GAP) * (i + 1) - 6;
+      const height = n.window.getBounds().height;
+      const newY = bottomEdge - height;
       n.window.setPosition(workArea.x + workArea.width - NOTIFICATION_WIDTH - 16, newY, true);
+      bottomEdge = newY - NOTIFICATION_GAP;
     }
   });
 }
@@ -367,6 +373,8 @@ function showCustomNotification(message, config) {
   }
 
   activeNotifications.push(notificationData);
+  // 入栈即重排：既有卡已是动态高度，固定常量估的初始 y 会被立即纠正
+  repositionNotifications();
 }
 
 // 二轮 M4 优雅圆角：DWMWA_WINDOW_CORNER_PREFERENCE(33)=DWMWCP_ROUND(2) 给
@@ -421,6 +429,8 @@ function registerCardIpc() {
     if (notification?.window && !notification.window.isDestroyed()) {
       try {
         notification.window.setContentSize(NOTIFICATION_WIDTH, Math.max(64, Math.min(140, Number(height) || 96)));
+        // 高度变了：重排全体（本窗底边随左上锚定下移，全体回收间距）
+        repositionNotifications();
       } catch {}
     }
   });
