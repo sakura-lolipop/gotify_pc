@@ -263,7 +263,11 @@ class GotifyClient extends EventEmitter {
       title: String(message.title || "新通知"),
       message: String(message.message || ""),
       priority: Number(message.priority || 0),
-      date: message.date || now
+      date: message.date || now,
+      // extras 透传：Hotify 媒体消息的下载/图片 URL 在 client::notification
+      // （click.url / bigImageUrl），与 gotify 官方安卓客户端同一数据源；
+      // 之前整包丢弃导致媒体消息"URL 不识别"
+      extras: message?.extras && typeof message.extras === "object" ? message.extras : undefined
     };
   }
 

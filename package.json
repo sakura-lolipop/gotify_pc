@@ -1,6 +1,6 @@
 {
   "name": "gotify-pc",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Gotify PC client based on Electron",
   "main": "main.js",
   "scripts": {
@@ -20,7 +20,7 @@
   "devDependencies": {
     "@types/react": "^18.3.28",
     "@types/react-dom": "^18.3.7",
-    "electron": "^33.2.1",
+    "electron": "^44.1.1",
     "electron-builder": "^24.13.3",
     "esbuild": "^0.25.0",
     "png-to-ico": "^2.1.8",

@@ -24485,6 +24485,42 @@ var require_jsx_runtime = __commonJS({
   }
 });
 
+// src/services/message-urls.js
+var require_message_urls = __commonJS({
+  "src/services/message-urls.js"(exports, module) {
+    function isHttpUrl(value) {
+      return typeof value === "string" && /^https?:\/\//i.test(value);
+    }
+    function extractMessageUrls2(message) {
+      const urls = [];
+      const extras = message == null ? void 0 : message.extras;
+      if (extras && typeof extras === "object") {
+        const notification = extras["client::notification"];
+        if (notification && typeof notification === "object") {
+          const click = notification.click;
+          if (click && typeof click === "object" && isHttpUrl(click.url)) {
+            urls.push(click.url);
+          }
+          if (isHttpUrl(notification.bigImageUrl)) {
+            urls.push(notification.bigImageUrl);
+          }
+        }
+      }
+      const body = String((message == null ? void 0 : message.message) || "").match(/https?:\/\/[^\s<>"')\]]+/gi) || [];
+      urls.push(...body);
+      return Array.from(new Set(urls)).slice(0, 5);
+    }
+    function hostOf2(url) {
+      try {
+        return new URL(url).hostname;
+      } catch (e) {
+        return url;
+      }
+    }
+    module.exports = { extractMessageUrls: extractMessageUrls2, hostOf: hostOf2 };
+  }
+});
+
 // renderer.tsx
 var import_react = __toESM(require_react());
 var import_client = __toESM(require_client());
@@ -24566,18 +24602,21 @@ function IconInbox({ className = "h-4 w-4" }) {
 }
 
 // renderer.tsx
+var import_message_urls = __toESM(require_message_urls());
 var import_jsx_runtime2 = __toESM(require_jsx_runtime());
 var DEFAULT_CONFIG = {
   serverUrl: "",
   clientToken: "",
   showCustomNotification: true,
   playSound: true,
+  notificationSound: "huawei/Dew.ogg",
   notificationAutoHide: true,
   notificationNeverClose: false,
   notificationDuration: 5e3,
   archiveExpiryMinutes: 60,
   codeSmartExpiry: true,
   theme: "system",
+  windowMaterial: "mica",
   minimizeToTray: true,
   showMainWindowOnStartup: true,
   autoLaunch: false,
@@ -24585,8 +24624,90 @@ var DEFAULT_CONFIG = {
   autoRefreshInterval: 1e4,
   barkServerUrl: "",
   barkForwardApps: [],
-  mutedNotificationApps: []
+  mutedNotificationApps: [],
+  glass: {
+    light: { alpha: 0.35, blur: 12, tint: "#f4f8ff" },
+    dark: { alpha: 0.55, blur: 24, tint: "#101c2c" }
+  },
+  cardGlass: {
+    light: { alpha: 0.5, tint: "#ffffff" },
+    dark: { alpha: 0.6, tint: "#101c2c" }
+  },
+  cardAcrylic: true,
+  themeCustom: {
+    light: { bg: { tint: "#f6fbff", alpha: 0 }, list: { tint: "#ffffff", alpha: 0.75 }, input: { tint: "#ffffff", alpha: 1 } },
+    dark: { bg: { tint: "#07111f", alpha: 0 }, list: { tint: "#ffffff", alpha: 0.045 }, input: { tint: "#0f1826", alpha: 1 } }
+  }
 };
+function hexToRgba(hex, alpha) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+  if (!m) return `rgba(255,255,255,${alpha})`;
+  const n = parseInt(m[1], 16);
+  return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${alpha})`;
+}
+var PRESET_TINTS = {
+  light: ["#ffffff", "#f4f8ff", "#fff8f2", "#eef4ff", "#f0faf5", "#fdf0f4", "#fdf6e3", "#f3effa", "#eef1f6", "#faf9f6"],
+  dark: ["#1e3a5f", "#1f2937", "#17332b", "#2d2440", "#3a2418", "#12333d", "#3a1f24", "#0f1b2d", "#201a16", "#141414"]
+};
+function ColorField({ value, onChange, presets }) {
+  const [text, setText] = (0, import_react.useState)(value);
+  (0, import_react.useEffect)(() => {
+    setText(value);
+  }, [value]);
+  const commit = (raw) => {
+    const v = raw.startsWith("#") ? raw : `#${raw}`;
+    if (/^#[0-9a-f]{6}$/i.test(v)) {
+      onChange(v.toLowerCase());
+    }
+  };
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-1.5", children: [
+    presets.map((c) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      "button",
+      {
+        type: "button",
+        title: c,
+        onClick: () => onChange(c),
+        style: { background: c },
+        className: `h-4 w-4 rounded-full border ${value.toLowerCase() === c ? "border-primary ring-1 ring-primary" : "border-border hover:border-text-muted"}`
+      },
+      c
+    )),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      "input",
+      {
+        type: "color",
+        value,
+        onChange: (event) => onChange(event.target.value),
+        className: "h-6 w-7 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0.5"
+      }
+    ),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      "input",
+      {
+        value: text,
+        onChange: (event) => {
+          setText(event.target.value);
+          commit(event.target.value);
+        },
+        spellCheck: false,
+        className: "h-6 w-[64px] rounded border border-border bg-input px-1 font-mono text-[11px] text-text-soft outline-none focus:border-primary"
+      }
+    )
+  ] });
+}
+function applyThemeVars(cfg) {
+  const root = document.documentElement;
+  const glass = cfg.glass || DEFAULT_CONFIG.glass;
+  const theme = cfg.themeCustom || DEFAULT_CONFIG.themeCustom;
+  ["light", "dark"].forEach((mode) => {
+    root.style.setProperty(`--panel-glass-${mode}`, hexToRgba(glass[mode].tint, glass[mode].alpha));
+    root.style.setProperty(`--glass-blur-${mode}`, `${glass[mode].blur}px`);
+    const section = theme[mode];
+    root.style.setProperty(`--bg-${mode}`, hexToRgba(section.bg.tint, section.bg.alpha));
+    root.style.setProperty(`--layer-${mode}`, hexToRgba(section.list.tint, section.list.alpha));
+    root.style.setProperty(`--input-${mode}`, hexToRgba(section.input.tint, section.input.alpha));
+  });
+}
 function Switch({ checked, onChange, disabled = false, danger = false }) {
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
     "button",
@@ -24661,19 +24782,67 @@ function SettingsModal({
   onPickStoragePath,
   onApplyStoragePath,
   applyingStoragePath,
-  storageLockedByEnv
+  storageLockedByEnv,
+  onResetNotice
 }) {
+  var _a;
   const [showToken, setShowToken] = (0, import_react.useState)(false);
   const [applications, setApplications] = (0, import_react.useState)([]);
+  const [soundList, setSoundList] = (0, import_react.useState)([]);
+  const [soundMenuOpen, setSoundMenuOpen] = (0, import_react.useState)(false);
+  const [soundBrand, setSoundBrand] = (0, import_react.useState)(null);
+  const [themeTab, setThemeTab] = (0, import_react.useState)("light");
+  const patchWithPreview = (partial) => {
+    patch(partial);
+    applyThemeVars({ ...draft, ...partial });
+  };
+  const setBlock = (key, field, value) => {
+    var _a2, _b, _c;
+    const current = ((_b = (_a2 = draft.themeCustom) == null ? void 0 : _a2[themeTab]) == null ? void 0 : _b[key]) || DEFAULT_CONFIG.themeCustom[themeTab][key];
+    const nextThemeCustom = {
+      ...draft.themeCustom,
+      [themeTab]: {
+        ...(_c = draft.themeCustom) == null ? void 0 : _c[themeTab],
+        [key]: { ...current, [field]: value }
+      }
+    };
+    patchWithPreview({ themeCustom: nextThemeCustom });
+  };
+  const setGlass = (field, value) => {
+    var _a2;
+    const current = ((_a2 = draft.glass) == null ? void 0 : _a2[themeTab]) || DEFAULT_CONFIG.glass[themeTab];
+    const nextGlass = { ...draft.glass, [themeTab]: { ...current, [field]: value } };
+    patchWithPreview({ glass: nextGlass });
+  };
+  const setCardGlass = (field, value) => {
+    var _a2;
+    const current = ((_a2 = draft.cardGlass) == null ? void 0 : _a2[themeTab]) || DEFAULT_CONFIG.cardGlass[themeTab];
+    const nextCardGlass = { ...draft.cardGlass, [themeTab]: { ...current, [field]: value } };
+    patchWithPreview({ cardGlass: nextCardGlass });
+  };
+  const onMaterialChange = (material) => {
+    patch({ windowMaterial: material });
+    window.gotifyAPI.setWindowMaterial(material);
+  };
+  const resetThemeDefaults = () => {
+    patchWithPreview({
+      glass: JSON.parse(JSON.stringify(DEFAULT_CONFIG.glass)),
+      themeCustom: JSON.parse(JSON.stringify(DEFAULT_CONFIG.themeCustom))
+    });
+  };
   const [draft, setDraft] = (0, import_react.useState)({ ...initialConfig });
   const [armedClose, setArmedClose] = (0, import_react.useState)(false);
+  const [exiting, setExiting] = (0, import_react.useState)(false);
   const draftDirty = JSON.stringify(draft) !== JSON.stringify(initialConfig);
   const requestClose = () => {
     if (draftDirty && !armedClose) {
       setArmedClose(true);
       return;
     }
-    onClose();
+    if (!exiting) {
+      setExiting(true);
+      window.setTimeout(onClose, 200);
+    }
   };
   (0, import_react.useEffect)(() => {
     const onKey = (event) => {
@@ -24688,7 +24857,35 @@ function SettingsModal({
     window.gotifyAPI.getApplications().then((apps) => {
       setApplications(Array.isArray(apps) ? apps : []);
     });
+    window.gotifyAPI.getSoundList().then((sounds) => {
+      setSoundList(Array.isArray(sounds) ? sounds : []);
+    });
+    onResetNotice();
   }, []);
+  const groupedSounds = (0, import_react.useMemo)(() => {
+    const groups = {};
+    soundList.forEach((s) => {
+      var _a2;
+      (groups[_a2 = s.group] || (groups[_a2] = [])).push(s);
+    });
+    return groups;
+  }, [soundList]);
+  const currentSound = soundList.find((s) => s.value === draft.notificationSound);
+  const currentSoundLabel = (currentSound == null ? void 0 : currentSound.name) || ((_a = draft.notificationSound) == null ? void 0 : _a.split("/").pop()) || "\u9ED8\u8BA4";
+  const previewOnly = async (value) => {
+    try {
+      const base64 = await window.gotifyAPI.previewSound(value);
+      if (base64) {
+        new Audio(`data:audio/ogg;base64,${base64}`).play();
+      }
+    } catch (e) {
+    }
+  };
+  const onPickSound = (value) => {
+    patch({ notificationSound: value });
+    setSoundMenuOpen(false);
+    previewOnly(value);
+  };
   const patch = (partial) => setDraft((prev) => ({ ...prev, ...partial }));
   const onServerUrlChange = (event) => patch({ serverUrl: event.target.value });
   const onTokenChange = (event) => patch({ clientToken: event.target.value });
@@ -24708,162 +24905,340 @@ function SettingsModal({
     }
   };
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-3", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "absolute inset-0 bg-black/50 backdrop-blur-[3px] dark:bg-black/60", onClick: requestClose }),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "relative flex w-[640px] max-h-[86vh] max-w-[92vw] flex-col overflow-hidden rounded-lg border border-black/[0.06] bg-panel shadow-2xl dark:border-white/[0.08]", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "border-b border-border-light px-5 py-3 text-[18px] font-semibold text-text", children: "\u8BBE\u7F6E" }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 text-[13px]", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u670D\u52A1\u5668" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-3 py-1.5", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "w-24 text-[13px] text-text shrink-0", children: "\u670D\u52A1\u5668\u5730\u5740" }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-              "input",
-              {
-                value: draft.serverUrl,
-                onChange: onServerUrlChange,
-                placeholder: "https://your-gotify.example.com",
-                className: "h-8 flex-1 rounded border border-border bg-input text-text px-3 text-[13px] outline-none focus:border-primary"
-              }
-            )
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-3 py-1.5", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "w-24 text-[13px] text-text shrink-0", children: "\u5BA2\u6237\u7AEF\u4EE4\u724C" }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-              "input",
-              {
-                type: showToken ? "text" : "password",
-                value: draft.clientToken,
-                onChange: onTokenChange,
-                placeholder: "Client Token",
-                className: "h-8 flex-1 rounded border border-border bg-input text-text px-3 text-[13px] outline-none focus:border-primary"
-              }
-            ),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => setShowToken((v) => !v), className: "h-8 rounded border border-border bg-card px-3 text-[12px] text-text-soft hover:bg-card-hover", children: showToken ? "\u9690\u85CF" : "\u663E\u793A" })
-          ] })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u901A\u77E5" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u663E\u793A\u81EA\u5B9A\u4E49\u5F39\u7A97\u901A\u77E5", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.showCustomNotification, onChange: (v) => patch({ showCustomNotification: v }) }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u64AD\u653E\u63D0\u793A\u97F3", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.playSound, onChange: (v) => patch({ playSound: v }) }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u542F\u7528\u4E3B\u52A8\u91CD\u8FDE", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.enableReconnect, onChange: (v) => patch({ enableReconnect: v }) }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u901A\u77E5\u81EA\u52A8\u6D88\u5931", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.notificationAutoHide, onChange: onAutoHideChange }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(SettingRow, { label: "\u901A\u77E5\u6301\u7EED\u65F6\u95F4", hint: "\u4EC5\u5728\u81EA\u52A8\u6D88\u5931\u542F\u7528\u65F6\u751F\u6548", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-              "input",
-              {
-                type: "range",
-                min: 1,
-                max: 60,
-                step: 1,
-                value: Math.max(1, Math.round(draft.notificationDuration / 1e3)),
-                onChange: onDurationSecondsChange,
-                disabled: !draft.notificationAutoHide || draft.notificationNeverClose,
-                className: "w-40 accent-primary disabled:opacity-40"
-              }
-            ),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "w-12 text-right text-[12px] tabular-nums text-text-soft", children: [
-              Math.max(1, Math.round(draft.notificationDuration / 1e3)),
-              " \u79D2"
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      "div",
+      {
+        className: `absolute inset-0 bg-black/15 backdrop-blur-[3px] dark:bg-black/40 settings-backdrop-enter ${exiting ? "settings-backdrop-exit" : ""}`,
+        onClick: requestClose
+      }
+    ),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+      "div",
+      {
+        className: `relative flex w-[640px] max-h-[86vh] max-w-[92vw] flex-col overflow-hidden rounded-lg border border-black/[0.06] bg-panel-glass settings-glass settings-glass-edge dark:border-white/[0.08] settings-panel-enter ${exiting ? "settings-exit" : ""}`,
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "border-b border-border-light px-5 py-3 text-[18px] font-semibold text-text", children: "\u8BBE\u7F6E" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 text-[13px]", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u670D\u52A1\u5668" }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-3 py-1.5", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "w-24 text-[13px] text-text shrink-0", children: "\u670D\u52A1\u5668\u5730\u5740" }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  "input",
+                  {
+                    value: draft.serverUrl,
+                    onChange: onServerUrlChange,
+                    placeholder: "https://your-gotify.example.com",
+                    className: "h-8 flex-1 rounded border border-border bg-input text-text px-3 text-[13px] outline-none focus:border-primary"
+                  }
+                )
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-3 py-1.5", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "w-24 text-[13px] text-text shrink-0", children: "\u5BA2\u6237\u7AEF\u4EE4\u724C" }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  "input",
+                  {
+                    type: showToken ? "text" : "password",
+                    value: draft.clientToken,
+                    onChange: onTokenChange,
+                    placeholder: "Client Token",
+                    className: "h-8 flex-1 rounded border border-border bg-input text-text px-3 text-[13px] outline-none focus:border-primary"
+                  }
+                ),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => setShowToken((v) => !v), className: "h-8 rounded border border-border bg-card px-3 text-[12px] text-text-soft hover:bg-card-hover", children: showToken ? "\u9690\u85CF" : "\u663E\u793A" })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u901A\u77E5" }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u663E\u793A\u81EA\u5B9A\u4E49\u5F39\u7A97\u901A\u77E5", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.showCustomNotification, onChange: (v) => patch({ showCustomNotification: v }) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u64AD\u653E\u63D0\u793A\u97F3", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.playSound, onChange: (v) => patch({ playSound: v }) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u63D0\u793A\u97F3", hint: "\u5148\u9009\u54C1\u724C\u518D\u9009\u58F0\u97F3\uFF0C\u9009\u4E2D\u5373\u8BD5\u542C\uFF1B\u9700\u5F00\u542F\u4E0A\u65B9\u300C\u64AD\u653E\u63D0\u793A\u97F3\u300D", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "relative", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+                  "button",
+                  {
+                    onClick: () => setSoundMenuOpen((prev) => !prev),
+                    className: "flex h-8 items-center gap-1 rounded-md border border-border bg-input px-2.5 text-[12px] text-text-soft hover:border-primary focus:outline-none",
+                    children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "max-w-[130px] truncate", children: currentSoundLabel }),
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IconChevronDown, { className: "h-3 w-3 text-text-muted" })
+                    ]
+                  }
+                ),
+                soundMenuOpen ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "fixed inset-0 z-40", onClick: () => setSoundMenuOpen(false) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "scroll-thin absolute right-0 top-full z-50 mt-1.5 max-h-72 min-w-[190px] overflow-y-auto rounded-md border border-border bg-panel py-1 shadow-lg", children: !soundBrand ? Object.entries(groupedSounds).map(([group, items]) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+                    "button",
+                    {
+                      onClick: () => setSoundBrand(group),
+                      className: `flex w-full items-center justify-between px-4 py-1.5 text-left text-[13px] hover:bg-card-hover ${items.some((s) => s.value === draft.notificationSound) ? "font-semibold text-primary" : "text-text-soft"}`,
+                      children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: group }),
+                        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "text-[11px] tabular-nums text-text-muted", children: items.length })
+                      ]
+                    },
+                    group
+                  )) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-1 border-b border-border px-2 py-1.5", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                        "button",
+                        {
+                          onClick: () => setSoundBrand(null),
+                          className: "rounded px-1.5 py-0.5 text-[12px] text-text-muted hover:bg-card-hover hover:text-text-soft",
+                          children: "\u2190"
+                        }
+                      ),
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "text-[12px] font-semibold text-text", children: soundBrand })
+                    ] }),
+                    (groupedSounds[soundBrand] || []).map((s) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+                      "button",
+                      {
+                        onClick: () => onPickSound(s.value),
+                        className: `group flex w-full items-center gap-2 px-4 py-1 text-left text-[12px] hover:bg-card-hover ${s.value === draft.notificationSound ? "font-semibold text-primary" : "text-text-soft"}`,
+                        children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "min-w-0 flex-1 truncate", children: s.name }),
+                          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                            "span",
+                            {
+                              role: "button",
+                              title: "\u8BD5\u542C",
+                              onClick: (event) => {
+                                event.stopPropagation();
+                                previewOnly(s.value);
+                              },
+                              className: "flex h-5 w-5 shrink-0 items-center justify-center rounded text-[8px] text-text-muted opacity-0 transition-opacity hover:bg-card-hover-alt hover:text-primary group-hover:opacity-100",
+                              children: "\u25B6"
+                            }
+                          )
+                        ]
+                      },
+                      s.value
+                    ))
+                  ] }) })
+                ] }) : null
+              ] }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u542F\u7528\u4E3B\u52A8\u91CD\u8FDE", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.enableReconnect, onChange: (v) => patch({ enableReconnect: v }) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u901A\u77E5\u81EA\u52A8\u6D88\u5931", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.notificationAutoHide, onChange: onAutoHideChange }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(SettingRow, { label: "\u901A\u77E5\u6301\u7EED\u65F6\u95F4", hint: "\u4EC5\u5728\u81EA\u52A8\u6D88\u5931\u542F\u7528\u65F6\u751F\u6548", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  "input",
+                  {
+                    type: "range",
+                    min: 1,
+                    max: 60,
+                    step: 1,
+                    value: Math.max(1, Math.round(draft.notificationDuration / 1e3)),
+                    onChange: onDurationSecondsChange,
+                    disabled: !draft.notificationAutoHide || draft.notificationNeverClose,
+                    className: "w-40 accent-primary disabled:opacity-40"
+                  }
+                ),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "w-12 text-right text-[12px] tabular-nums text-text-soft", children: [
+                  Math.max(1, Math.round(draft.notificationDuration / 1e3)),
+                  " \u79D2"
+                ] })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u6C38\u4E0D\u81EA\u52A8\u5173\u95ED", hint: "\u4E0E\u300C\u81EA\u52A8\u6D88\u5931\u300D\u4E92\u65A5", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { danger: true, checked: draft.notificationNeverClose, onChange: onNeverCloseChange }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(SettingRow, { label: "\u901A\u77E5\u4E2D\u5FC3\u5B58\u6863\u65F6\u957F", hint: "\u6BCF\u6761\u6D88\u606F\u5728\u7CFB\u7EDF\u901A\u77E5\u4E2D\u5FC3\u7684\u4FDD\u7559\u65F6\u95F4", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  "input",
+                  {
+                    type: "range",
+                    min: 5,
+                    max: 240,
+                    step: 5,
+                    value: Math.max(5, draft.archiveExpiryMinutes),
+                    onChange: onArchiveMinutesChange,
+                    className: "w-40 accent-primary"
+                  }
+                ),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "w-14 text-right text-[12px] tabular-nums text-text-soft", children: [
+                  Math.max(5, draft.archiveExpiryMinutes),
+                  " \u5206\u949F"
+                ] })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u9A8C\u8BC1\u7801\u6309\u77ED\u4FE1\u6709\u6548\u671F\u5B58\u6863", hint: "\u6309\u77ED\u4FE1\u4E2D\u7684\u300CN\u5206\u949F\u300D\u5B58\u6863\uFF0C\u8BC6\u522B\u4E0D\u5230\u65F6\u56DE\u843D\u5230\u4E0A\u65B9\u65F6\u957F", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.codeSmartExpiry, onChange: (v) => patch({ codeSmartExpiry: v }) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "border-t border-border-light pt-2", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[13px] text-text", children: "\u5C4F\u853D\u5F39\u7A97\u5206\u7EC4" }),
+                applications.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[12px] text-text-muted", children: "\u6682\u65E0\u5E94\u7528\u5206\u7EC4\uFF0C\u8BF7\u5148\u8FDE\u63A5\u670D\u52A1\u5668" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex flex-wrap gap-1.5", children: applications.map((app) => {
+                  var _a2;
+                  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Chip, { label: app.name, active: (_a2 = draft.mutedNotificationApps) == null ? void 0 : _a2.includes(app.id), onClick: () => toggleIdIn("mutedNotificationApps", app.id) }, app.id);
+                }) }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-1 text-[11px] text-text-muted", children: "\u9009\u4E2D\u7684\u5206\u7EC4\u5C06\u4E0D\u518D\u663E\u793A\u5F39\u7A97\u63D0\u9192" })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "Bark \u6D88\u606F\u8F6C\u53D1" }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "space-y-2", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  "input",
+                  {
+                    value: draft.barkServerUrl || "",
+                    onChange: onBarkUrlChange,
+                    placeholder: "https://api.day.app/YOUR_KEY",
+                    className: "h-8 w-full rounded border border-border bg-input text-text px-2 text-[13px] outline-none focus:border-primary"
+                  }
+                ),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[13px] text-text", children: "\u8981\u8F6C\u53D1\u7684\u5E94\u7528\u5206\u7EC4" }),
+                  applications.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[12px] text-text-muted", children: "\u6682\u65E0\u5E94\u7528\u5206\u7EC4\uFF0C\u8BF7\u5148\u8FDE\u63A5\u670D\u52A1\u5668" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex flex-wrap gap-1.5", children: applications.map((app) => {
+                    var _a2;
+                    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Chip, { label: app.name, active: (_a2 = draft.barkForwardApps) == null ? void 0 : _a2.includes(app.id), onClick: () => toggleIdIn("barkForwardApps", app.id) }, app.id);
+                  }) })
+                ] })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u5916\u89C2" }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u4E3B\u9898", hint: "\u8DDF\u968F\u7CFB\u7EDF\u6216\u624B\u52A8\u6307\u5B9A\uFF0C\u7A97\u53E3\u6750\u8D28\u540C\u6B65\u6DF1\u6D45", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex rounded border border-border bg-input p-0.5", children: [["system", "\u8DDF\u968F\u7CFB\u7EDF"], ["light", "\u6D45\u8272"], ["dark", "\u6DF1\u8272"]].map(([value, label]) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                "button",
+                {
+                  type: "button",
+                  onClick: () => patch({ theme: value }),
+                  className: `rounded px-3 py-1 text-[12px] transition-colors ${(draft.theme || "system") === value ? "bg-primary text-white" : "text-text-soft hover:bg-card-hover"}`,
+                  children: label
+                },
+                value
+              )) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "mt-2 border-t border-border-light pt-2", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "mb-1.5 flex items-center justify-between", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[13px] text-text", children: "\u4E3B\u9898\u5DE5\u574A" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                    "button",
+                    {
+                      onClick: resetThemeDefaults,
+                      className: "rounded border border-border bg-card px-2 py-0.5 text-[11px] text-text-soft hover:bg-card-hover",
+                      children: "\u6062\u590D\u9ED8\u8BA4"
+                    }
+                  )
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 flex gap-1", children: [["light", "\u6D45\u8272"], ["dark", "\u6DF1\u8272"]].map(([value, label]) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: () => setThemeTab(value),
+                    className: `rounded px-2.5 py-0.5 text-[11px] transition-colors ${themeTab === value ? "bg-primary text-white" : "border border-border bg-input text-text-soft hover:bg-card-hover"}`,
+                    children: label
+                  },
+                  value
+                )) }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u5B9E\u65F6\u78E8\u7802\u684C\u9762", hint: "\u5F00=Acrylic\uFF08\u900F\u51FA\u5B9E\u65F6\u6A21\u7CCA\u7684\u684C\u9762\u5185\u5BB9\uFF09\uFF1B\u5173=Mica\uFF08\u58C1\u7EB8\u9759\u6001\u91C7\u6837\uFF0C\u7701\u7535\uFF09", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: (draft.windowMaterial || "mica") === "acrylic", onChange: (v) => onMaterialChange(v ? "acrylic" : "mica") }) }),
+                [["bg", "\u7A97\u53E3\u80CC\u666F"], ["list", "\u6D88\u606F\u5217\u8868"], ["input", "\u8F93\u5165\u5E95\u8272"]].map(([key, label]) => {
+                  var _a2, _b;
+                  const block = ((_b = (_a2 = draft.themeCustom) == null ? void 0 : _a2[themeTab]) == null ? void 0 : _b[key]) || DEFAULT_CONFIG.themeCustom[themeTab][key];
+                  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-2 py-1", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "w-16 shrink-0 text-[12px] text-text-soft", children: label }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(ColorField, { value: block.tint, onChange: (hex) => setBlock(key, "tint", hex), presets: PRESET_TINTS[themeTab] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(AlphaSlider, { alpha: block.alpha, onChange: (next) => setBlock(key, "alpha", next) })
+                  ] }, key);
+                }),
+                (() => {
+                  var _a2;
+                  const cardFace = ((_a2 = draft.cardGlass) == null ? void 0 : _a2[themeTab]) || DEFAULT_CONFIG.cardGlass[themeTab];
+                  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex flex-wrap items-center gap-2 border-t border-border-light py-1.5 pt-2", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "w-16 shrink-0 text-[12px] text-text-soft", children: "\u901A\u77E5\u5F39\u5361" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(ColorField, { value: cardFace.tint, onChange: (hex) => setCardGlass("tint", hex), presets: PRESET_TINTS[themeTab] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(AlphaSlider, { alpha: cardFace.alpha, min: 0, max: 95, onChange: (next) => setCardGlass("alpha", next) }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "flex items-center gap-1.5 text-[11px] text-text-muted", children: [
+                      "\u78E8\u7802\u5E95",
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.cardAcrylic !== false, onChange: (v) => patch({ cardAcrylic: v }) })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                      "button",
+                      {
+                        onClick: () => window.gotifyAPI.notifyTest(cardFace, draft.cardAcrylic !== false),
+                        className: "h-6 shrink-0 rounded border border-border bg-card px-2 text-[11px] text-text-soft hover:bg-card-hover",
+                        children: "\u6D4B\u8BD5\u5F39\u5361"
+                      }
+                    )
+                  ] });
+                })(),
+                (() => {
+                  var _a2;
+                  const glass = ((_a2 = draft.glass) == null ? void 0 : _a2[themeTab]) || DEFAULT_CONFIG.glass[themeTab];
+                  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex flex-wrap items-center gap-2 border-t border-border-light py-1.5 pt-2", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "w-16 shrink-0 text-[12px] text-text-soft", children: "\u8BBE\u7F6E\u5F39\u7A97" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(ColorField, { value: glass.tint, onChange: (hex) => setGlass("tint", hex), presets: PRESET_TINTS[themeTab] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(AlphaSlider, { alpha: glass.alpha, min: 5, max: 95, onChange: (next) => setGlass("alpha", next) }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "flex items-center gap-1.5 text-[11px] text-text-muted", children: [
+                      "\u6A21\u7CCA",
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                        "input",
+                        {
+                          type: "range",
+                          min: 0,
+                          max: 40,
+                          value: glass.blur,
+                          onChange: (event) => setGlass("blur", Number(event.target.value)),
+                          className: "w-20 accent-primary"
+                        }
+                      ),
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "w-9 tabular-nums", children: [
+                        glass.blur,
+                        "px"
+                      ] })
+                    ] })
+                  ] });
+                })()
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u6570\u636E\u5B58\u50A8" }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-2 py-1", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex-1 rounded border border-border bg-input px-2 py-1.5 text-[12px] text-text-soft break-all", children: storagePath || "-" }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  "button",
+                  {
+                    onClick: onOpenStoragePath,
+                    disabled: !storagePath,
+                    className: "h-8 whitespace-nowrap rounded border border-primary px-3 text-[12px] text-primary hover:bg-card-hover disabled:opacity-50 disabled:hover:bg-transparent",
+                    children: "\u6253\u5F00\u76EE\u5F55"
+                  }
+                )
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-1 text-[11px] text-text-muted", children: "\u5982\u9700\u8FC1\u79FB\u6570\u636E\uFF0C\u8BF7\u624B\u52A8\u590D\u5236\u6587\u4EF6\u5230\u65B0\u76EE\u5F55" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u901A\u7528" }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u6700\u5C0F\u5316\u5230\u7CFB\u7EDF\u6258\u76D8", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.minimizeToTray, onChange: (v) => patch({ minimizeToTray: v }) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u5F00\u673A\u81EA\u52A8\u542F\u52A8", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.autoLaunch, onChange: (v) => patch({ autoLaunch: v }) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u542F\u52A8\u65F6\u663E\u793A\u4E3B\u754C\u9762", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.showMainWindowOnStartup, onChange: (v) => patch({ showMainWindowOnStartup: v }) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "mt-2 border-t border-border-light pt-2 text-[12px] text-text-muted", children: [
+                "\u7248\u672C ",
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "font-mono text-text-soft", children: appVersion || "-" })
+              ] })
             ] })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u6C38\u4E0D\u81EA\u52A8\u5173\u95ED", hint: "\u4E0E\u300C\u81EA\u52A8\u6D88\u5931\u300D\u4E92\u65A5", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { danger: true, checked: draft.notificationNeverClose, onChange: onNeverCloseChange }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(SettingRow, { label: "\u901A\u77E5\u4E2D\u5FC3\u5B58\u6863\u65F6\u957F", hint: "\u6BCF\u6761\u6D88\u606F\u5728\u7CFB\u7EDF\u901A\u77E5\u4E2D\u5FC3\u7684\u4FDD\u7559\u65F6\u95F4", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-              "input",
-              {
-                type: "range",
-                min: 5,
-                max: 240,
-                step: 5,
-                value: Math.max(5, draft.archiveExpiryMinutes),
-                onChange: onArchiveMinutesChange,
-                className: "w-40 accent-primary"
-              }
-            ),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "w-14 text-right text-[12px] tabular-nums text-text-soft", children: [
-              Math.max(5, draft.archiveExpiryMinutes),
-              " \u5206\u949F"
-            ] })
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u9A8C\u8BC1\u7801\u6309\u77ED\u4FE1\u6709\u6548\u671F\u5B58\u6863", hint: "\u6309\u77ED\u4FE1\u4E2D\u7684\u300CN\u5206\u949F\u300D\u5B58\u6863\uFF0C\u8BC6\u522B\u4E0D\u5230\u65F6\u56DE\u843D\u5230\u4E0A\u65B9\u65F6\u957F", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.codeSmartExpiry, onChange: (v) => patch({ codeSmartExpiry: v }) }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "border-t border-border-light pt-2", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[13px] text-text", children: "\u5C4F\u853D\u5F39\u7A97\u5206\u7EC4" }),
-            applications.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[12px] text-text-muted", children: "\u6682\u65E0\u5E94\u7528\u5206\u7EC4\uFF0C\u8BF7\u5148\u8FDE\u63A5\u670D\u52A1\u5668" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex flex-wrap gap-1.5", children: applications.map((app) => {
-              var _a;
-              return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Chip, { label: app.name, active: (_a = draft.mutedNotificationApps) == null ? void 0 : _a.includes(app.id), onClick: () => toggleIdIn("mutedNotificationApps", app.id) }, app.id);
-            }) }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-1 text-[11px] text-text-muted", children: "\u9009\u4E2D\u7684\u5206\u7EC4\u5C06\u4E0D\u518D\u663E\u793A\u5F39\u7A97\u63D0\u9192" })
-          ] })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "Bark \u6D88\u606F\u8F6C\u53D1" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-              "input",
-              {
-                value: draft.barkServerUrl || "",
-                onChange: onBarkUrlChange,
-                placeholder: "https://api.day.app/YOUR_KEY",
-                className: "h-8 w-full rounded border border-border bg-input text-text px-2 text-[13px] outline-none focus:border-primary"
-              }
-            ),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[13px] text-text", children: "\u8981\u8F6C\u53D1\u7684\u5E94\u7528\u5206\u7EC4" }),
-              applications.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[12px] text-text-muted", children: "\u6682\u65E0\u5E94\u7528\u5206\u7EC4\uFF0C\u8BF7\u5148\u8FDE\u63A5\u670D\u52A1\u5668" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex flex-wrap gap-1.5", children: applications.map((app) => {
-                var _a;
-                return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Chip, { label: app.name, active: (_a = draft.barkForwardApps) == null ? void 0 : _a.includes(app.id), onClick: () => toggleIdIn("barkForwardApps", app.id) }, app.id);
-              }) })
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "shrink-0 flex items-center justify-between gap-3 border-t border-border-light bg-card-hover-alt px-5 py-3", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `flex-1 min-w-0 break-words text-[13px] font-semibold leading-tight ${(notice == null ? void 0 : notice.type) === "error" ? "text-danger-text" : "text-success-text"}`, children: armedClose ? "\u6709\u672A\u4FDD\u5B58\u7684\u4FEE\u6539\uFF0C\u518D\u70B9\u4E00\u6B21\u5173\u95ED" : (notice == null ? void 0 : notice.text) || "" }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex shrink-0 items-center gap-2", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: requestClose, className: "h-9 whitespace-nowrap rounded border border-border bg-card px-4 text-[13px] text-text-soft hover:bg-card-hover", children: "\u53D6\u6D88" }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => onTest(draft), disabled: testing, className: "h-9 whitespace-nowrap rounded border border-border bg-card px-3 text-[13px] text-text-soft hover:bg-card-hover disabled:opacity-50", children: testing ? "\u6D4B\u8BD5\u4E2D..." : "\u6D4B\u8BD5\u8FDE\u63A5" }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => onSave(draft), disabled: saving, className: "h-9 whitespace-nowrap rounded bg-primary px-4 text-[13px] text-white hover:bg-primary-hover disabled:opacity-50", children: saving ? "\u4FDD\u5B58\u4E2D..." : "\u4FDD\u5B58" })
             ] })
           ] })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u5916\u89C2" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u4E3B\u9898", hint: "\u8DDF\u968F\u7CFB\u7EDF\u6216\u624B\u52A8\u6307\u5B9A\uFF0C\u7A97\u53E3\u6750\u8D28\u540C\u6B65\u6DF1\u6D45", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex rounded border border-border bg-input p-0.5", children: [["system", "\u8DDF\u968F\u7CFB\u7EDF"], ["light", "\u6D45\u8272"], ["dark", "\u6DF1\u8272"]].map(([value, label]) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            "button",
-            {
-              type: "button",
-              onClick: () => patch({ theme: value }),
-              className: `rounded px-3 py-1 text-[12px] transition-colors ${(draft.theme || "system") === value ? "bg-primary text-white" : "text-text-soft hover:bg-card-hover"}`,
-              children: label
-            },
-            value
-          )) }) })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u6570\u636E\u5B58\u50A8" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-2 py-1", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex-1 rounded border border-border bg-input px-2 py-1.5 text-[12px] text-text-soft break-all", children: storagePath || "-" }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-              "button",
-              {
-                onClick: onOpenStoragePath,
-                disabled: !storagePath,
-                className: "h-8 whitespace-nowrap rounded border border-primary px-3 text-[12px] text-primary hover:bg-card-hover disabled:opacity-50 disabled:hover:bg-transparent",
-                children: "\u6253\u5F00\u76EE\u5F55"
-              }
-            )
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-1 text-[11px] text-text-muted", children: "\u5982\u9700\u8FC1\u79FB\u6570\u636E\uFF0C\u8BF7\u624B\u52A8\u590D\u5236\u6587\u4EF6\u5230\u65B0\u76EE\u5F55" })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u901A\u7528" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u6700\u5C0F\u5316\u5230\u7CFB\u7EDF\u6258\u76D8", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.minimizeToTray, onChange: (v) => patch({ minimizeToTray: v }) }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u5F00\u673A\u81EA\u52A8\u542F\u52A8", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.autoLaunch, onChange: (v) => patch({ autoLaunch: v }) }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u542F\u52A8\u65F6\u663E\u793A\u4E3B\u754C\u9762", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.showMainWindowOnStartup, onChange: (v) => patch({ showMainWindowOnStartup: v }) }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "mt-2 border-t border-border-light pt-2 text-[12px] text-text-muted", children: [
-            "\u7248\u672C ",
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "font-mono text-text-soft", children: appVersion || "-" })
-          ] })
-        ] })
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "shrink-0 flex items-center justify-between gap-3 border-t border-border-light bg-card-hover-alt px-5 py-3", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `flex-1 min-w-0 break-words text-[13px] font-semibold leading-tight ${(notice == null ? void 0 : notice.type) === "error" ? "text-danger-text" : "text-success-text"}`, children: armedClose ? "\u6709\u672A\u4FDD\u5B58\u7684\u4FEE\u6539\uFF0C\u518D\u70B9\u4E00\u6B21\u5173\u95ED" : (notice == null ? void 0 : notice.text) || "" }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex shrink-0 items-center gap-2", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: requestClose, className: "h-9 whitespace-nowrap rounded border border-border bg-card px-4 text-[13px] text-text-soft hover:bg-card-hover", children: "\u53D6\u6D88" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => onTest(draft), disabled: testing, className: "h-9 whitespace-nowrap rounded border border-border bg-card px-3 text-[13px] text-text-soft hover:bg-card-hover disabled:opacity-50", children: testing ? "\u6D4B\u8BD5\u4E2D..." : "\u6D4B\u8BD5\u8FDE\u63A5" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => onSave(draft), disabled: saving, className: "h-9 whitespace-nowrap rounded bg-primary px-4 text-[13px] text-white hover:bg-primary-hover disabled:opacity-50", children: saving ? "\u4FDD\u5B58\u4E2D..." : "\u4FDD\u5B58" })
-        ] })
-      ] })
+        ]
+      }
+    )
+  ] });
+}
+function AlphaSlider({ alpha, onChange, min = 0, max = 100 }) {
+  const shown = Math.max(min, Math.min(max, 100 - Math.round(alpha * 100)));
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "flex shrink-0 items-center gap-1.5 text-[11px] text-text-muted", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: "\u900F\u660E" }),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      "input",
+      {
+        type: "range",
+        min,
+        max,
+        value: shown,
+        onChange: (event) => onChange((100 - Number(event.target.value)) / 100),
+        className: "w-20 accent-primary"
+      }
+    ),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "w-8 tabular-nums", children: [
+      shown,
+      "%"
     ] })
   ] });
 }
@@ -24909,6 +25284,7 @@ function MessageCard({ item, appLabel, onToggleFavorite, verificationCode }) {
     if (rest) parts.push({ text: rest, code: false });
     return parts;
   }, [visibleMessage, verificationCode]);
+  const messageUrls = (0, import_react.useMemo)(() => (0, import_message_urls.extractMessageUrls)(item), [item]);
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "group flex gap-3 px-4 py-2 hover:bg-layer-hover", children: [
     priorityColor ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `w-1 shrink-0 rounded-full ${priorityColor}` }) : null,
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "min-w-0 flex-1", children: [
@@ -24940,6 +25316,19 @@ function MessageCard({ item, appLabel, onToggleFavorite, verificationCode }) {
           index
         ) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: part.text }, index)
       ) }),
+      messageUrls.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-1 flex flex-wrap gap-1.5", children: messageUrls.map((url) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+        "button",
+        {
+          onClick: () => window.gotifyAPI.openExternal(url),
+          title: url,
+          className: "flex h-6 max-w-[260px] items-center gap-1 rounded border border-border bg-input px-2 text-[12px] text-text-soft hover:border-primary hover:text-primary",
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "shrink-0 text-[10px]", children: "\u{1F517}" }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "truncate", children: (0, import_message_urls.hostOf)(url) })
+          ]
+        },
+        url
+      )) }) : null,
       canCollapse ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => setExpanded((prev) => !prev), className: "mt-0.5 text-[12px] text-primary hover:text-primary-hover", children: expanded ? "\u6536\u8D77" : "\u5C55\u5F00" }) : null
     ] })
   ] });
@@ -24951,6 +25340,14 @@ function App() {
   const [messages, setMessages] = (0, import_react.useState)([]);
   const [status, setStatus] = (0, import_react.useState)({ connected: false, status: "\u672A\u8FDE\u63A5" });
   const [settingsOpen, setSettingsOpen] = (0, import_react.useState)(false);
+  (0, import_react.useEffect)(() => {
+    applyThemeVars(config);
+  }, [config]);
+  (0, import_react.useEffect)(() => {
+    if (!settingsOpen) {
+      applyThemeVars(config);
+    }
+  }, [settingsOpen]);
   const [loading, setLoading] = (0, import_react.useState)(true);
   const [testing, setTesting] = (0, import_react.useState)(false);
   const [saving, setSaving] = (0, import_react.useState)(false);
@@ -25051,7 +25448,6 @@ function App() {
     try {
       const saved = await window.gotifyAPI.saveConfig(draft);
       setConfig(saved);
-      setSettingsNotice({ text: "\u8BBE\u7F6E\u5DF2\u4FDD\u5B58\uFF0C\u6B63\u5728\u5C1D\u8BD5\u91CD\u8FDE", type: "info" });
       const apps = await window.gotifyAPI.getApplications();
       setApplications(Array.isArray(apps) ? apps : []);
       setSettingsOpen(false);
@@ -25202,7 +25598,7 @@ function App() {
   if (loading) {
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex h-full items-center justify-center text-text-muted", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[20px]", children: "\u52A0\u8F7D\u4E2D..." }) });
   }
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex h-full flex-col", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex h-full flex-col bg-bg", children: [
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-2 px-4 py-2.5", children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex rounded-md bg-black/[0.05] p-0.5 dark:bg-white/[0.06]", children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
@@ -25370,7 +25766,8 @@ function App() {
         onPickStoragePath,
         onApplyStoragePath,
         applyingStoragePath,
-        storageLockedByEnv
+        storageLockedByEnv,
+        onResetNotice: () => setSettingsNotice({ text: "", type: "info" })
       }
     ) : null
   ] });

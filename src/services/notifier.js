@@ -1,4 +1,7 @@
-const { BrowserWindow, Notification, clipboard, screen, ipcMain, nativeTheme } = require("electron");
+const { app, shell, BrowserWindow, Notification, clipboard, screen, ipcMain, nativeTheme } = require("electron");
+const fs = require("node:fs");
+const path = require("node:path");
+const { extractMessageUrls, hostOf } = require("./message-urls");
 
 // Single home of the app identity used for Windows notifications. The
 // Start Menu shortcut must carry this exact AUMID as its
@@ -70,6 +73,22 @@ function isPopupMutedForApp(config, appid) {
   return mutedApps.includes(id);
 }
 
+// 弹卡提示音：assets/sounds/<品牌>/<文件>.ogg（asar 内 fs 透明读取）→ data URI
+// 嵌进卡 HTML。校验与 main 的 sounds:read 同一形态；读不到回落无声（弹卡不因
+// 音频缺位失败）。
+function readSoundDataUri(value) {
+  const match = /^([\w-]+)\/([\w .-]+\.ogg)$/.exec(String(value || ""));
+  if (!match) {
+    return "";
+  }
+  try {
+    const buffer = fs.readFileSync(path.join(app.getAppPath(), "assets", "sounds", match[1], match[2]));
+    return `data:audio/ogg;base64,${buffer.toString("base64")}`;
+  } catch {
+    return "";
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Entry point: one message in, the right combination of surfaces out
 // ---------------------------------------------------------------------------
@@ -100,26 +119,39 @@ const MAX_NOTIFICATIONS = 5;
 let activeNotifications = [];
 
 function closeCustomNotificationWindow(windowId) {
-  if (!windowId) {
-    // Close all
-    activeNotifications.forEach((n) => {
-      if (n.timer) clearTimeout(n.timer);
-      if (n.window && !n.window.isDestroyed()) n.window.close();
-    });
-    activeNotifications = [];
+  // 空参=关全部。统一路径：先移出列表并重排（退场卡淡出的 160ms 里下方卡
+  // 已上移，同 Win11 系统行为），renderer 收 closing 叠淡出，之后真关窗。
+  const targets = windowId ? activeNotifications.filter((n) => n.id === windowId) : activeNotifications.slice();
+  if (targets.length === 0) {
     return;
   }
-
-  const index = activeNotifications.findIndex((n) => n.id === windowId);
-  if (index !== -1) {
-    const notification = activeNotifications[index];
-    if (notification.timer) clearTimeout(notification.timer);
-    if (notification.window && !notification.window.isDestroyed()) {
-      notification.window.close();
+  activeNotifications = activeNotifications.filter((n) => !targets.includes(n));
+  targets.forEach((n) => {
+    if (n.timer) clearTimeout(n.timer);
+    if (n.window && !n.window.isDestroyed()) {
+      try {
+        n.window.webContents.send("custom-notification-closing");
+      } catch {}
+      const window = n.window;
+      // 退场可见性单点=窗级 setOpacity：CSS opacity 淡不掉材质背景（玻璃是
+      // 窗实体），旧淡出期残窗叠在底部=「越测底下的卡越大」。三步窗级渐隐
+      // (~150ms)→close→400ms destroy 兜底。
+      setTimeout(() => window.isDestroyed() || window.setOpacity(0.5), 50);
+      setTimeout(() => window.isDestroyed() || window.setOpacity(0.15), 100);
+      setTimeout(() => {
+        if (!window.isDestroyed()) {
+          window.setOpacity(0);
+          window.close();
+          setTimeout(() => {
+            if (!window.isDestroyed()) {
+              window.destroy();
+            }
+          }, 400);
+        }
+      }, 150);
     }
-    activeNotifications.splice(index, 1);
-    repositionNotifications();
-  }
+  });
+  repositionNotifications();
 }
 
 // 动态窗高（S4）后固定 96 常量排位失真：高卡（≤140）按 96+10 栈距排会相互
@@ -127,25 +159,42 @@ function closeCustomNotificationWindow(windowId) {
 // 高度累计排位；resize/close 后重排全体。
 function repositionNotifications() {
   const workArea = screen.getPrimaryDisplay().workArea;
+  // 出屏防御（三轮）：高卡（≤190）×5 的栈总高可能超过屏幕——最上卡会被排
+  // 到 workArea 之上。栈超高时淘汰最旧一张再重排（close 内部递归重排，这里
+  // 直接返回交给那次）；保底留 1 张不淘。
+  let total = -NOTIFICATION_GAP;
+  activeNotifications.forEach((n) => {
+    total += NOTIFICATION_GAP + (n.window && !n.window.isDestroyed() ? n.window.getBounds().height : NOTIFICATION_HEIGHT);
+  });
+  if (activeNotifications.length > 1 && total > workArea.height) {
+    closeCustomNotificationWindow(activeNotifications[0].id);
+    return;
+  }
   let bottomEdge = workArea.y + workArea.height - 6;
   activeNotifications.forEach((n) => {
     if (n.window && !n.window.isDestroyed()) {
-      const height = n.window.getBounds().height;
+      // 尺寸单一真相=自有账本 entry.height（上报时记）。台账实证：44 上
+      // frameless 窗每次 setPosition 尺寸取整漂移 +1（getBounds 被污染），
+      // 旧实现用 getBounds 排位=污染回灌→全体滚雪球变大。改 setBounds
+      // 显式钉回 360×真高，每轮归零漂移。
+      const height = n.height || (n.window ? n.window.getBounds().height : NOTIFICATION_HEIGHT);
       const newY = bottomEdge - height;
-      n.window.setPosition(workArea.x + workArea.width - NOTIFICATION_WIDTH - 16, newY, true);
+      n.window.setBounds({ x: workArea.x + workArea.width - NOTIFICATION_WIDTH - 16, y: newY, width: NOTIFICATION_WIDTH, height });
       bottomEdge = newY - NOTIFICATION_GAP;
     }
   });
 }
 
-// 通知卡配色（CP7 落地，二轮 S4 调参）：Acrylic 窗体上叠半透明面色透出磨砂
-// 桌面，随系统深浅取 CP6 token 同族色值；卡是生成时定色的短命表面。
-// 二轮调参：fill 浅 0.5/深 0.6（0.66 会糊死 Acrylic）、圆角 8（系统制式）、
-// 去实边框改投影（DWM acrylic 自带 luminosity 边）。
-const CARD_PALETTE = {
+// 通知卡配色（CP7 落地）：Acrylic 窗体上叠半透明面色透出磨砂桌面。三轮
+// （2026-09-02）面色进主题工坊（config.cardGlass，浅深各 tint+alpha）：
+// 面色/hover 由 face 动态生成（hover=alpha+0.1 派生）；文字族按底色亮度
+// 自动选深/浅（防浅色卡调成深底后字不可见）。此处只剩文字/交互色。
+const CARD_FACE_DEFAULTS = {
+  light: { alpha: 0.5, tint: "#ffffff" },
+  dark: { alpha: 0.6, tint: "#101c2c" }
+};
+const CARD_TEXT_PALETTE = {
   dark: {
-    card: "rgba(16, 28, 44, 0.6)",
-    cardHover: "rgba(30, 44, 65, 0.7)",
     title: "#e2e8f0",
     app: "#94a3b8",
     body: "#cbd5e1",
@@ -157,8 +206,6 @@ const CARD_PALETTE = {
     act: "#93c5fd"
   },
   light: {
-    card: "rgba(255, 255, 255, 0.5)",
-    cardHover: "rgba(250, 250, 250, 0.62)",
     title: "#333333",
     app: "#555555",
     body: "#555555",
@@ -171,14 +218,46 @@ const CARD_PALETTE = {
   }
 };
 
-function buildCustomNotificationHtml({ title, subtitle, body, id, verificationCode }) {
+function rgbaFromHex(hex, alpha) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
+  if (!m) {
+    return `rgba(255, 255, 255, ${alpha})`;
+  }
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+function faceLuma(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
+  if (!m) {
+    return 1;
+  }
+  const n = parseInt(m[1], 16);
+  return (0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
+}
+
+// 解析面色：override（工坊测试按草稿直弹）> config.cardGlass > 默认
+function resolveCardFace(config, faceOverride) {
+  const mode = nativeTheme.shouldUseDarkColors ? "dark" : "light";
+  const face = faceOverride || config?.cardGlass?.[mode] || CARD_FACE_DEFAULTS[mode];
+  return {
+    tint: face.tint,
+    alpha: face.alpha,
+    card: rgbaFromHex(face.tint, face.alpha),
+    cardHover: rgbaFromHex(face.tint, Math.min(face.alpha + 0.1, 1)),
+    // 亮底用深字族，暗底用浅字族
+    text: faceLuma(face.tint) > 0.5 ? CARD_TEXT_PALETTE.light : CARD_TEXT_PALETTE.dark
+  };
+}
+
+function buildCustomNotificationHtml({ title, subtitle, body, id, verificationCode, soundDataUri, urls, face }) {
   const escapeHtml = (text) =>
     String(text || "")
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;");
   const code = verificationCode || "";
-  const c = nativeTheme.shouldUseDarkColors ? CARD_PALETTE.dark : CARD_PALETTE.light;
+  const c = face.text;
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -189,9 +268,12 @@ function buildCustomNotificationHtml({ title, subtitle, body, id, verificationCo
     /* 二轮 S4 修正+M4 优雅版：applySystemRoundedCorners 给窗 DWM 8px 圆角后，
        卡面恢复 8px 圆角与窗角重合（koffi 失败时窗为方角，卡圆角会在四角露出
        材质方块——可接受降级）。仍禁 CSS 投影（窗缘裁切直角圈，electron.md E2）。 */
-    .card { width: ${NOTIFICATION_WIDTH}px; border-radius: 8px; background: ${c.card}; color: ${c.title}; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; animation: popup .18s ease-out; cursor: pointer; transition: background 0.2s; }
-    .card:hover { background: ${c.cardHover}; }
-    @keyframes popup { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .card { width: ${NOTIFICATION_WIDTH}px; border-radius: 8px; background: ${face.card}; color: ${c.title}; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; animation: popup .28s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; transition: background 0.2s; }
+    .card:hover { background: ${face.cardHover}; }
+    /* 三轮：进场 0.28s expo-out 上浮 28px（对齐 Win11 toast 浮入手感）；
+       退场由主进程先发 closing 再延迟关窗，这里只做 0.15s 淡出。 */
+    .card.closing { opacity: 0; transition: opacity .15s ease-in; animation: none; }
+    @keyframes popup { from { transform: translateY(28px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     .meta { display: flex; align-items: center; gap: 8px; }
     .app-name { font-size: 12px; color: ${c.app}; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .time { font-size: 11px; color: ${c.close}; font-variant-numeric: tabular-nums; flex-shrink: 0; }
@@ -202,12 +284,18 @@ function buildCustomNotificationHtml({ title, subtitle, body, id, verificationCo
     .body { font-size: 13px; line-height: 1.4; color: ${c.body}; white-space: pre-line; max-height: 72px; overflow: hidden; }
     .code { font-family: "Cascadia Mono", Consolas, monospace; font-variant-numeric: tabular-nums; color: ${c.code}; background: ${c.codeBg}; border-radius: 4px; padding: 0 5px; }
     .code.ok { color: #ffffff; background: #22c55e; }
+    /* 三轮：弹卡 URL 按钮（用户拍板「弹卡也带按钮」）——与列表按钮同一
+       提取源（message-urls 单一真相），点击走 IPC 开系统浏览器 */
+    .urls { display: ${urls.length ? "flex" : "none"}; flex-wrap: wrap; gap: 6px; }
+    .url-btn { border: 1px solid rgba(128, 128, 128, 0.3); background: rgba(128, 128, 128, 0.12); color: inherit; font-size: 12px; padding: 2px 8px; border-radius: 4px; cursor: pointer; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .url-btn:hover { border-color: ${c.act}; color: ${c.act}; }
     .actions { display: ${code ? "flex" : "none"}; gap: 14px; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(128, 128, 128, 0.22); }
     .act { background: none; border: none; padding: 2px 4px; font-size: 12px; color: ${c.act}; cursor: pointer; border-radius: 4px; }
     .act:hover { background: ${c.closeHoverBg}; }
   </style>
 </head>
 <body>
+  ${soundDataUri ? `<audio autoplay src="${soundDataUri}"></audio>` : ""}
   <div id="card" class="card">
     <div class="meta">
       <div class="app-name">${escapeHtml(subtitle)}</div>
@@ -216,6 +304,9 @@ function buildCustomNotificationHtml({ title, subtitle, body, id, verificationCo
     </div>
     <div class="title">${escapeHtml(title)}</div>
     <div class="body" id="body"></div>
+    <div class="urls">
+      ${urls.map((u) => `<button class="url-btn" data-url="${escapeHtml(u)}" title="${escapeHtml(u)}">🔗 ${escapeHtml(hostOf(u))}</button>`).join("")}
+    </div>
     <div class="actions">
       <button class="act" id="act-copy">复制验证码</button>
       <button class="act" id="act-open">打开消息列表</button>
@@ -227,6 +318,18 @@ function buildCustomNotificationHtml({ title, subtitle, body, id, verificationCo
     const card = document.getElementById("card");
     const bodyEl = document.getElementById("body");
     const verificationCode = "${code}";
+
+    // 退场：主进程关窗前 160ms 通知到位，这里只叠淡出 class
+    ipcRenderer.on("custom-notification-closing", () => {
+      card.classList.add("closing");
+    });
+
+    document.querySelectorAll(".url-btn").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        ipcRenderer.send("custom-notification-open-url", btn.dataset.url);
+      });
+    });
 
     document.getElementById("time").innerText = new Date().toTimeString().slice(0, 5);
     // 正文渲染：验证码段 mono 高亮（点击整卡复制的交互不变）
@@ -296,38 +399,68 @@ function buildCustomNotificationHtml({ title, subtitle, body, id, verificationCo
       ipcRenderer.send("custom-notification-resume-timer", "${id}");
     });
 
-    // 二轮 S4：动态窗高——load 后多段稳态测量（首帧字体度量未稳会量出假高）
+    // 三轮定稿:高度单源单报+同数三消费——h 算一次,同一数字分发:
+    // ①上报主进程 setContentSize(窗) ②body 锁高(布局) ③卡随 body。
+    // 旧病:窗高(测量值)与卡高(CSS 自然高)两个计算源靠隐式契约对齐,
+    // 测量后字体晚到/重排/取整任一环抖 1px 就是「双层缝」。
     const reportHeight = () => {
-      const h = Math.min(140, Math.max(64, Math.ceil(document.body.scrollHeight) + 2));
+      // 上限 190:正文(≤72)+URL 按钮行(24)+验证码 actions 的最坏叠加 ~216,
+      // 190 覆盖「长文+按钮」(~176),极端叠加仍让位窗缘
+      const h = Math.min(190, Math.max(64, Math.ceil(document.body.scrollHeight)));
+      document.body.style.height = h + "px";
+      document.body.style.overflow = "hidden";
       ipcRenderer.send("custom-notification-resize", { id: "${id}", height: h });
     };
     window.addEventListener("load", () => {
-      setTimeout(reportHeight, 50);
       setTimeout(reportHeight, 250);
     });
   </script>
 </body>`;
 }
 
-function showCustomNotification(message, config) {
+// 首露面=终态（单一真相，reveal 单点）：弹卡观感由 DWM 材质 attach/CSS
+// 面色/入场动画/动态 resize 四路异步写入，show 早于 resize 到位会出现
+// 「先透明后收回」的竞争窗口。首露面压到稳态之后；auto-hide 计时同挪到
+// 露面时刻（可见时长不被暗中耗时吃掉）。
+function revealNotification(entry) {
+  if (!entry || entry.shown || !entry.window || entry.window.isDestroyed()) {
+    return;
+  }
+  entry.shown = true;
+  entry.window.showInactive();
+  const config = getConfig();
+  if (!config.notificationNeverClose && config.notificationAutoHide) {
+    const duration = Math.max(1000, Number(config.notificationDuration) || 5000);
+    entry.timer = setTimeout(() => closeCustomNotificationWindow(entry.id), duration);
+  }
+}
+
+function showCustomNotification(message, config, faceOverride, acrylicOverride) {
   if (activeNotifications.length >= MAX_NOTIFICATIONS) {
-    const oldest = activeNotifications.shift();
+    // 淘汰最旧也走统一 close（含淡出与重排），不再手抄一份关窗逻辑
+    const oldest = activeNotifications[0];
     if (oldest) {
-      if (oldest.timer) clearTimeout(oldest.timer);
-      if (oldest.window && !oldest.window.isDestroyed()) oldest.window.close();
+      closeCustomNotificationWindow(oldest.id);
     }
   }
 
   const workArea = screen.getPrimaryDisplay().workArea;
-  const id = Math.random().toString(36).substring(7);
+  // 旧 Math.random().toString(36).substring(7) 短尾时可产生空/短 id——resize
+  // IPC find 错卡（A 的尺寸设到 B 上）。UUID 杜绝碰撞。
+  const id = require("node:crypto").randomUUID();
 
   const title = message.title || "Gotify 消息";
   const subtitle = message.appname || `应用 #${message.appid || 0}`;
   const body = formatNotificationBody(message.message);
 
   const verificationCode = extractVerificationCode(title, message.message);
+  const soundDataUri = config.playSound ? readSoundDataUri(config.notificationSound) : "";
+  const urls = extractMessageUrls(message);
+  const face = resolveCardFace(config, faceOverride);
+  // 磨砂底=accent 路线（玻璃即面色,CSS 无底）；关=transparent 裸透（CSS 面色）
+  const wantsAcrylic = acrylicOverride !== false && config?.cardAcrylic !== false && process.platform === "win32";
 
-  const html = buildCustomNotificationHtml({ title, subtitle, body, id, verificationCode, appid: message.appid });
+  const html = buildCustomNotificationHtml({ title, subtitle, body, id, verificationCode, appid: message.appid, soundDataUri, urls, face });
 
   const notificationWindow = new BrowserWindow({
     width: NOTIFICATION_WIDTH,
@@ -343,12 +476,14 @@ function showCustomNotification(message, config) {
     maximizable: false,
     closable: true,
     skipTaskbar: true,
-    transparent: true,
+    // 三轮终判（accent-probe 实证）：磨砂底=主窗同款路线——非 transparent
+    // + backgroundMaterial:acrylic + CSS 面色（44 已修客户区材质，主窗即活
+    // 证；accent 对 Electron 透明窗 hr=0 但不渲染，纯 transparent 死路）。
+    // 裸透（磨砂底关）= transparent。
+    ...(wantsAcrylic ? { backgroundMaterial: "acrylic" } : { transparent: true }),
     focusable: false,
     alwaysOnTop: true,
     show: false,
-    // CP7 M2：Acrylic 窗体（叠桌面磨砂），半透明面色在 CSS 层
-    ...(process.platform === "win32" ? { backgroundMaterial: "acrylic" } : {}),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -358,19 +493,32 @@ function showCustomNotification(message, config) {
   const notificationData = {
     id,
     window: notificationWindow,
-    timer: null
+    timer: null,
+    shown: false
   };
 
+    // 首露面=终态（三轮定稿）：高度真相单源=渲染端 DOM。快路径=渲染端 250ms
+  // 自报；兜底路径=320ms 仍未露面时主进程**主动拉取**（executeJavaScript 量
+  // scrollHeight）→resize→重排→露。旧兜底按 96 常量假高直接揭幕，被真实
+  // 上报追上时可见「上移+露底」——兜底用谎言值是非单一真相的残留。
   notificationWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   // 系统圆角（成则卡恢复 8px 圆角与 DWM luminosity 边吻合）
   applySystemRoundedCorners(notificationWindow);
   notificationWindow.loadURL(`data:text/html;charset=UTF-8,${encodeURIComponent(html)}`);
-  notificationWindow.once("ready-to-show", () => notificationWindow?.showInactive());
-
-  if (!config.notificationNeverClose && config.notificationAutoHide) {
-    const duration = Math.max(1000, Number(config.notificationDuration) || 5000);
-    notificationData.timer = setTimeout(() => closeCustomNotificationWindow(id), duration);
-  }
+  notificationWindow.once("ready-to-show", () => {
+    setTimeout(async () => {
+      if (notificationData.shown || notificationWindow.isDestroyed()) {
+        return;
+      }
+      try {
+        const measured = Number(await notificationWindow.webContents.executeJavaScript("Math.ceil(document.body.scrollHeight)"));
+        notificationData.height = Math.max(64, Math.min(190, measured || 96));
+        notificationWindow.setContentSize(NOTIFICATION_WIDTH, notificationData.height);
+      } catch {}
+      repositionNotifications();
+      revealNotification(notificationData);
+    }, 320);
+  });
 
   activeNotifications.push(notificationData);
   // 入栈即重排：既有卡已是动态高度，固定常量估的初始 y 会被立即纠正
@@ -381,36 +529,49 @@ function showCustomNotification(message, config) {
 // frameless+transparent 窗系统圆角（Win11 自动圆角不覆盖此类窗，electron.md E2）。
 // koffi(FFI, N-API) 从 dwmapi.dll 直调；加载失败静默回退方角（无 crash 面）。
 // 生产 asar 需 --unpack-dir node_modules/koffi（.node 不能从 asar 内加载）。
-let dwmSetWindowAttribute = null;
+let dwmApi = null;
 function loadDwmApi() {
-  if (dwmSetWindowAttribute !== null) {
-    return dwmSetWindowAttribute;
+  if (dwmApi !== null) {
+    return dwmApi;
   }
   if (process.platform !== "win32") {
-    return (dwmSetWindowAttribute = false);
+    return (dwmApi = false);
   }
   try {
     const koffi = require("koffi");
     const dwm = koffi.load("dwmapi.dll");
-    dwmSetWindowAttribute = dwm.func("long __stdcall DwmSetWindowAttribute(intptr_t hwnd, uint32_t attr, void* pv, uint32_t cb)");
+    const MARGINS = koffi.struct("MARGINS", {
+      cxLeftWidth: "int32",
+      cxRightWidth: "int32",
+      cyTopHeight: "int32",
+      cyBottomHeight: "int32"
+    });
+    dwmApi = {
+      setAttr: dwm.func("long __stdcall DwmSetWindowAttribute(intptr_t hwnd, uint32_t attr, void* pv, uint32_t cb)"),
+      extend: dwm.func("long __stdcall DwmExtendFrameIntoClientArea(intptr_t hwnd, MARGINS *margins)"),
+      MARGINS
+    };
   } catch (error) {
     console.error("[Notify] koffi/dwmapi 不可用，弹卡回退方角:", error?.message || error);
-    dwmSetWindowAttribute = false;
+    dwmApi = false;
   }
-  return dwmSetWindowAttribute;
+  return dwmApi;
+}
+
+function windowHwnd(window) {
+  const handle = window.getNativeWindowHandle();
+  return process.arch === "x64" ? handle.readBigInt64LE(0) : BigInt(handle.readInt32LE(0));
 }
 
 function applySystemRoundedCorners(window) {
-  const setAttr = loadDwmApi();
-  if (!setAttr || !window || window.isDestroyed()) {
+  const api = loadDwmApi();
+  if (!api || !window || window.isDestroyed()) {
     return;
   }
   try {
-    const handle = window.getNativeWindowHandle();
-    const hwnd = process.arch === "x64" ? handle.readBigInt64LE(0) : BigInt(handle.readInt32LE(0));
     const preference = Buffer.alloc(4);
     preference.writeInt32LE(2, 0); // DWMWCP_ROUND（系统 8px）
-    const hr = setAttr(hwnd, 33, preference, 4);
+    const hr = api.setAttr(windowHwnd(window), 33, preference, 4);
     if (hr !== 0) {
       console.error("[Notify] corner preference hr=0x" + (hr >>> 0).toString(16));
     }
@@ -423,14 +584,23 @@ function registerCardIpc() {
   ipcMain.on("custom-notification-close", (_, windowId) => {
     closeCustomNotificationWindow(windowId);
   });
-  // 二轮 S4：卡片内容量完自报高度（钳 64-140），窗随内容不再固定 96
+  // 弹卡 URL 按钮：开系统默认浏览器（只放行 http/https，与列表按钮同规则）
+  ipcMain.on("custom-notification-open-url", (_, url) => {
+    if (/^https?:\/\//i.test(String(url || ""))) {
+      shell.openExternal(String(url));
+    }
+  });
+  // 三轮定稿:单报流水——渲染端 250ms 唯一一次上报(度量终值),主进程
+  // 一次 resize → 重排(y 就位)→ 露面。顺序铁律不变。
   ipcMain.on("custom-notification-resize", (_, { id, height } = {}) => {
     const notification = activeNotifications.find((n) => n.id === id);
     if (notification?.window && !notification.window.isDestroyed()) {
       try {
-        notification.window.setContentSize(NOTIFICATION_WIDTH, Math.max(64, Math.min(140, Number(height) || 96)));
-        // 高度变了：重排全体（本窗底边随左上锚定下移，全体回收间距）
+        const clamped = Math.max(64, Math.min(190, Number(height) || 96));
+        notification.height = clamped;
+        notification.window.setContentSize(NOTIFICATION_WIDTH, clamped);
         repositionNotifications();
+        revealNotification(notification);
       } catch {}
     }
   });
@@ -647,11 +817,29 @@ async function sendArchivalToast(message, config) {
   }
 }
 
+// 工坊测试弹卡：按草稿面色直弹（不走 notify 分流——不归档、不受屏蔽，
+// 面色 override 未保存也生效），真实 config 管时长/声音
+function testNotification(faceOverride, acrylicOverride) {
+  showCustomNotification(
+    {
+      id: `test-${Date.now()}`,
+      title: "测试弹卡",
+      message: "主题工坊参数预览：面色与磨砂底都按当前草稿生效（未保存也行）。\n第二行——顺便预览多行正文裁剪。",
+      appid: 0,
+      appname: "主题工坊"
+    },
+    getConfig(),
+    faceOverride,
+    acrylicOverride
+  );
+}
+
 module.exports = {
   APP_USER_MODEL_ID,
   initNotifier,
   notify,
   extractVerificationCode,
+  testNotification,
   closeAllNotifications: () => closeCustomNotificationWindow(),
   flushArchivalToasts,
   reconcileArchivalToasts

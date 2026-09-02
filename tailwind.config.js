@@ -9,6 +9,7 @@ module.exports = {
         // 二轮新增立面 layer/layer-hover/stroke + banner/warn/star 收编硬编码色
         bg: "var(--bg)",
         panel: "var(--panel)",
+        "panel-glass": "var(--panel-glass)",
         card: "var(--card)",
         "card-hover": "var(--card-hover)",
         input: "var(--input)",

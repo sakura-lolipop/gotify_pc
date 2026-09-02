@@ -1,6 +1,6 @@
 const path = require("node:path");
 const fs = require("node:fs");
-const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog, nativeTheme, clipboard } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog, nativeTheme, clipboard, shell } = require("electron");
 const { ConfigStore } = require("./src/services/config-store");
 const { HistoryStore } = require("./src/services/history-store");
 const { GotifyClient, testConnection } = require("./src/services/gotify-client");
@@ -11,7 +11,8 @@ const {
   APP_USER_MODEL_ID,
   flushArchivalToasts,
   reconcileArchivalToasts,
-  extractVerificationCode
+  extractVerificationCode,
+  testNotification
 } = require("./src/services/notifier");
 
 let mainWindow = null;
@@ -210,6 +211,17 @@ function getAppNameById(appid) {
   return applicationMap.get(id) || "";
 }
 
+// 主窗 DWM 材质单一写点：mica=壁纸静态采样（默认，省电）/ acrylic=实时磨砂
+// 桌面内容。createWindow 启动应用 + theme:setMaterial IPC 切换，两处共用。
+function applyWindowMaterial(material) {
+  if (process.platform !== "win32") {
+    return;
+  }
+  try {
+    mainWindow?.setBackgroundMaterial(material === "acrylic" ? "acrylic" : "mica");
+  } catch {}
+}
+
 function createWindow() {
   const config = configStore.get();
   mainWindow = new BrowserWindow({
@@ -218,10 +230,10 @@ function createWindow() {
     minWidth: 760,
     minHeight: 520,
     icon: appIcon,
-    // Win11 Mica（ui-scan M1 配方）：删自绘 backgroundColor，窗口底交给 DWM
+    // Win11 材质（ui-scan M1 配方）：删自绘 backgroundColor，窗口底交给 DWM
     // 材质；网页侧 body 须透明才能透出（index.html 同步改）。低版本 Windows
-    // 静默回退普通窗口，需 index.html 兜底色。
-    ...(process.platform === "win32" ? { backgroundMaterial: "mica" } : {}),
+    // 静默回退普通窗口，需 index.html 兜底色。材质值不在构造参数里定——
+    // 构造后统一走 applyWindowMaterial（单一写点，工坊 IPC 同一路）。
     // 开机自启（或带 --hidden）时不显示主窗口，仅驻留托盘；手动双击正常显示
     show: Boolean(config.showMainWindowOnStartup) && !startHiddenAtLaunch,
     webPreferences: {
@@ -230,6 +242,7 @@ function createWindow() {
       nodeIntegration: false
     }
   });
+  applyWindowMaterial(config.windowMaterial);
   mainWindow.loadFile(path.join(__dirname, "index.html"));
   mainWindow.webContents.on("before-input-event", (_, input) => {
     if (input.key === "F12" || (input.control && input.shift && input.key.toUpperCase() === "I")) {
@@ -364,6 +377,10 @@ function bindGotifyEvents() {
   });
 }
 
+// 提示音品牌目录（assets/sounds/ 下一级）：顺序即下拉分组顺序
+const SOUND_BRAND_ORDER = ["huawei", "xiaomi", "apple", "oppo", "vivo", "houor", "meizu", "chuizi"];
+const SOUND_BRAND_NAMES = { huawei: "华为", xiaomi: "小米", apple: "Apple", oppo: "OPPO", vivo: "vivo", houor: "荣耀", meizu: "魅族", chuizi: "锤子" };
+
 function setupIpc() {
   ipcMain.handle("app:getVersion", () => `v${app.getVersion()}`);
   ipcMain.handle("theme:get", () => ({ dark: nativeTheme.shouldUseDarkColors }));
@@ -376,7 +393,59 @@ function setupIpc() {
     return true;
   });
   ipcMain.handle("config:get", () => configStore.get());
+  // 消息正文 URL 按钮的出口：只放行 http(s)，走系统默认浏览器（与 gotify
+  // 官方客户端点击链接的行为对齐）
+  ipcMain.handle("shell:openExternal", (_, url) => {
+    const target = String(url || "");
+    if (/^https?:\/\//i.test(target)) {
+      shell.openExternal(target);
+      return true;
+    }
+    return false;
+  });
+  // 提示音库：assets/sounds/<品牌>/*.ogg（asar 内路径，fs 透明读取）。
+  // 品牌顺序+中文名在此单点定义，notifier 读文件走同一目录约定。
+  ipcMain.handle("sounds:list", () => {
+    const root = path.join(app.getAppPath(), "assets", "sounds");
+    try {
+      return SOUND_BRAND_ORDER.filter((brand) => fs.existsSync(path.join(root, brand))).flatMap((brand) =>
+        fs
+          .readdirSync(path.join(root, brand))
+          .filter((f) => f.toLowerCase().endsWith(".ogg"))
+          .sort((a, b) => a.localeCompare(b, "zh-Hans-CN", { numeric: true }))
+          .map((f) => ({ group: SOUND_BRAND_NAMES[brand], name: f.replace(/\.ogg$/i, ""), value: `${brand}/${f}` }))
+      );
+    } catch {
+      return [];
+    }
+  });
+  // 工坊：测试弹卡（按草稿面色+磨砂底直弹，未保存也生效）
+  ipcMain.handle("notify:test", (_, face, acrylic) => {
+    testNotification(face && typeof face === "object" ? face : undefined, typeof acrylic === "boolean" ? acrylic : undefined);
+    return true;
+  });
+  // 工坊：主窗材质实时切换（走 applyWindowMaterial 单一写点）
+  ipcMain.handle("theme:setMaterial", (_, material) => {
+    if (material !== "mica" && material !== "acrylic") {
+      return false;
+    }
+    applyWindowMaterial(material);
+    return true;
+  });
+  // 试听：只放行 assets/sounds 下「品牌/文件.ogg」形态，杜绝目录穿越
+  ipcMain.handle("sounds:read", (_, value) => {
+    const match = /^([\w-]+)\/([\w .-]+\.ogg)$/.exec(String(value || ""));
+    if (!match || !SOUND_BRAND_ORDER.includes(match[1])) {
+      return null;
+    }
+    try {
+      return fs.readFileSync(path.join(app.getAppPath(), "assets", "sounds", match[1], match[2])).toString("base64");
+    } catch {
+      return null;
+    }
+  });
   ipcMain.handle("config:save", async (_, nextConfig) => {
+    const previous = configStore.get();
     const saved = configStore.save(nextConfig);
     applyThemeFromConfig();
 
@@ -391,10 +460,22 @@ function setupIpc() {
       });
     }
 
-    gotifyClient.stop();
-    if (saved.serverUrl && saved.clientToken) {
-      gotifyClient.start(saved);
-      await refreshApplications(saved, true);
+    // 三轮：仅连接参数(地址/令牌)变化才重启 WS——主题工坊保存高频，
+    // 无条件 stop/start 会每次断连进重连抖动（「保存后状态不更新」放大器）
+    const connectionChanged =
+      String(previous.serverUrl || "").trim() !== String(saved.serverUrl || "").trim() ||
+      String(previous.clientToken || "").trim() !== String(saved.clientToken || "").trim();
+    // 材质变化即时应用（实时切换已由工坊 IPC 做过，这里兜“外部改配置文件”
+    // 的场景；写点在 applyWindowMaterial）
+    if (previous.windowMaterial !== saved.windowMaterial) {
+      applyWindowMaterial(saved.windowMaterial);
+    }
+    if (connectionChanged) {
+      gotifyClient.stop();
+      if (saved.serverUrl && saved.clientToken) {
+        gotifyClient.start(saved);
+        await refreshApplications(saved, true);
+      }
     }
     return saved;
   });

@@ -8,16 +8,22 @@
    二轮新增（ui-scan round2）：--layer/--layer-hover/--stroke 立面体系、--banner/--warn/--star/
    --scrollbar 硬编码色收编。红线：长驻面只用静态低透明叠层，禁动态模糊。 */
 :root {
-  --bg: #f6fbff;
+  /* 主题工坊背景层单一映射（config.themeCustom 注入覆盖；默认值=CP6 现值，
+     未注入零漂移）：bg=窗口底（根容器）｜list=列表底（容器+分组头）｜input=输入底。
+     card 系是弹窗内部立面，不属背景层，保持静态。 */
+  --bg: var(--bg-light, rgba(246, 251, 255, 0));
+  --layer: var(--layer-light, rgba(255, 255, 255, 0.75));
+  --input: var(--input-light, #ffffff);
   --panel: #ffffff;
   --panel-strong: #ffffff;
+  /* 弹窗玻璃自定义（config.glass 注入覆盖）：主题色取对组，JS 未注入时落默认 */
+  --panel-glass: var(--panel-glass-light, rgba(244, 248, 255, 0.35));
+  --glass-blur: var(--glass-blur-light, 12px);
   --card: #ffffff;
   --card-hover: #fafafa;
   --card-hover-alt: #f5f5f5;
-  --input: #ffffff;
   --border: rgba(0, 0, 0, 0.09);
   --border-light: rgba(0, 0, 0, 0.05);
-  --layer: rgba(255, 255, 255, 0.75);
   --layer-hover: rgba(0, 0, 0, 0.04);
   --stroke: rgba(0, 0, 0, 0.06);
   --text: #333333;
@@ -50,16 +56,18 @@
 }
 
 :root.dark {
-  --bg: #07111f;
+  --bg: var(--bg-dark, rgba(7, 17, 31, 0));
+  --layer: var(--layer-dark, rgba(255, 255, 255, 0.045));
+  --input: var(--input-dark, #0f1826);
   --panel: #101c2c;
   --panel-strong: #16263b;
+  --panel-glass: var(--panel-glass-dark, rgba(16, 28, 44, 0.55));
+  --glass-blur: var(--glass-blur-dark, 24px);
   --card: #182436;
   --card-hover: #1e2c41;
   --card-hover-alt: #23344d;
-  --input: #0f1826;
   --border: rgba(255, 255, 255, 0.09);
   --border-light: rgba(255, 255, 255, 0.05);
-  --layer: rgba(255, 255, 255, 0.045);
   --layer-hover: rgba(255, 255, 255, 0.05);
   --stroke: rgba(255, 255, 255, 0.07);
   --text: #e2e8f0;
@@ -90,3 +98,23 @@
   --toast-code-border: #1e3a8a;
   --toast-code-hover: rgba(59, 130, 246, 0.2);
 }
+
+/* 设置弹窗玻璃化+开关动画（2026-09-02 用户点名）：面板 bg-panel-glass +
+   backdrop-blur。「长驻面禁动态模糊」红线不适用——modal 是短命面，且遮罩
+   backdrop-blur-[3px] 已有先例。 */
+@keyframes settings-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes settings-fade-in {
+  from { opacity: 0; }
+}
+.settings-panel-enter { animation: settings-in 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
+/* 弹窗玻璃主体：blur 半径走 --glass-blur（浅/深各一组，拉杆即时注入） */
+.settings-glass { backdrop-filter: blur(var(--glass-blur)) saturate(150%); }
+/* 浅色玻璃的材质感主力：上缘 1px 内高光（玻璃厚度/反光边，Fluent 浅色
+   acrylic 标配）+保留原外阴影（组合写一份，避免与 shadow-2xl 类互相覆盖） */
+.settings-glass-edge { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.5); }
+.settings-backdrop-enter { animation: settings-fade-in 0.18s ease-out; }
+.settings-exit { opacity: 0; transform: scale(0.97); transition: opacity 0.18s ease-in, transform 0.18s ease-in; }
+.settings-backdrop-exit { opacity: 0; transition: opacity 0.18s ease-in; }

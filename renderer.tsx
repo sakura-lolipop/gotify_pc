@@ -2,18 +2,21 @@ import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, Dispatch, SetStateAction } from "react";
 import { createRoot } from "react-dom/client";
 import { IconGear, IconMore, IconStarOutline, IconStarFilled, IconClearText, IconInbox, IconSearch, IconChevronDown } from "./renderer-icons";
+import { extractMessageUrls, hostOf } from "./src/services/message-urls";
 
 const DEFAULT_CONFIG = {
   serverUrl: "",
   clientToken: "",
   showCustomNotification: true,
   playSound: true,
+  notificationSound: "huawei/Dew.ogg",
   notificationAutoHide: true,
   notificationNeverClose: false,
   notificationDuration: 5000,
   archiveExpiryMinutes: 60,
   codeSmartExpiry: true,
   theme: "system" as "system" | "light" | "dark",
+  windowMaterial: "mica" as "mica" | "acrylic",
   minimizeToTray: true,
   showMainWindowOnStartup: true,
   autoLaunch: false,
@@ -22,7 +25,99 @@ const DEFAULT_CONFIG = {
   barkServerUrl: "",
   barkForwardApps: [] as number[],
   mutedNotificationApps: [] as number[],
+  glass: {
+    light: { alpha: 0.35, blur: 12, tint: "#f4f8ff" },
+    dark: { alpha: 0.55, blur: 24, tint: "#101c2c" }
+  },
+  cardGlass: {
+    light: { alpha: 0.5, tint: "#ffffff" },
+    dark: { alpha: 0.6, tint: "#101c2c" }
+  },
+  cardAcrylic: true,
+  themeCustom: {
+    light: { bg: { tint: "#f6fbff", alpha: 0 }, list: { tint: "#ffffff", alpha: 0.75 }, input: { tint: "#ffffff", alpha: 1 } },
+    dark: { bg: { tint: "#07111f", alpha: 0 }, list: { tint: "#ffffff", alpha: 0.045 }, input: { tint: "#0f1826", alpha: 1 } }
+  }
 };
+
+type GlassMode = { alpha: number; blur: number; tint: string };
+type ThemeBlock = { tint: string; alpha: number };
+
+// 主题工坊:hex+alpha → rgba
+function hexToRgba(hex: string, alpha: number) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+  if (!m) return `rgba(255,255,255,${alpha})`;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+// 主题工坊取色三模式(用户拍板):预置色板 + 取色器 + hex 直输,一个字段三种入口。
+// 色板跟 tab 走:浅色 tab=浅色系 10 调,深色 tab=深彩调 10 色(带色相,小圆点
+// 上可分辨——首版全局混排"5 浅+5 深",浅色 tab 下后五个成黑点,即此修正)
+const PRESET_TINTS = {
+  light: ["#ffffff", "#f4f8ff", "#fff8f2", "#eef4ff", "#f0faf5", "#fdf0f4", "#fdf6e3", "#f3effa", "#eef1f6", "#faf9f6"],
+  dark: ["#1e3a5f", "#1f2937", "#17332b", "#2d2440", "#3a2418", "#12333d", "#3a1f24", "#0f1b2d", "#201a16", "#141414"]
+};
+
+function ColorField({ value, onChange, presets }: { value: string; onChange: (hex: string) => void; presets: string[] }) {
+  const [text, setText] = useState(value);
+  useEffect(() => {
+    setText(value);
+  }, [value]);
+  const commit = (raw: string) => {
+    const v = raw.startsWith("#") ? raw : `#${raw}`;
+    if (/^#[0-9a-f]{6}$/i.test(v)) {
+      onChange(v.toLowerCase());
+    }
+  };
+  return (
+    <div className="flex items-center gap-1.5">
+      {presets.map((c) => (
+        <button
+          key={c}
+          type="button"
+          title={c}
+          onClick={() => onChange(c)}
+          style={{ background: c }}
+          className={`h-4 w-4 rounded-full border ${value.toLowerCase() === c ? "border-primary ring-1 ring-primary" : "border-border hover:border-text-muted"}`}
+        />
+      ))}
+      <input
+        type="color"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-6 w-7 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0.5"
+      />
+      <input
+        value={text}
+        onChange={(event) => {
+          setText(event.target.value);
+          commit(event.target.value);
+        }}
+        spellCheck={false}
+        className="h-6 w-[64px] rounded border border-border bg-input px-1 font-mono text-[11px] text-text-soft outline-none focus:border-primary"
+      />
+    </div>
+  );
+}
+
+
+// 主题工坊变量注入(即时预览与保存后应用共用)。背景层单一映射:
+// bg=窗口底(根容器)｜list=列表底(--layer,容器+分组头)｜input=输入底;
+// card 系不属背景层(弹窗内部立面),不注入。
+function applyThemeVars(cfg: Config) {
+  const root = document.documentElement;
+  const glass = cfg.glass || DEFAULT_CONFIG.glass;
+  const theme = cfg.themeCustom || DEFAULT_CONFIG.themeCustom;
+  (["light", "dark"] as const).forEach((mode) => {
+    root.style.setProperty(`--panel-glass-${mode}`, hexToRgba(glass[mode].tint, glass[mode].alpha));
+    root.style.setProperty(`--glass-blur-${mode}`, `${glass[mode].blur}px`);
+    const section = theme[mode];
+    root.style.setProperty(`--bg-${mode}`, hexToRgba(section.bg.tint, section.bg.alpha));
+    root.style.setProperty(`--layer-${mode}`, hexToRgba(section.list.tint, section.list.alpha));
+    root.style.setProperty(`--input-${mode}`, hexToRgba(section.input.tint, section.input.alpha));
+  });
+}
 
 type Config = typeof DEFAULT_CONFIG;
 type ApplicationInfo = { id: number; name: string };
@@ -35,6 +130,9 @@ type MessageItem = {
   title?: string;
   message?: string;
   favorite?: boolean;
+  // gotify extras：Hotify 媒体消息的 client::notification（click.url 下载 /
+  // bigImageUrl 大图），官方安卓客户端同源字段
+  extras?: Record<string, unknown>;
 };
 type StorageMeta = { path?: string; lockedByEnv?: boolean };
 type ConnectionStatus = { connected?: boolean; status?: string };
@@ -55,6 +153,7 @@ type SettingsModalProps = {
   onApplyStoragePath: () => void;
   applyingStoragePath: boolean;
   storageLockedByEnv: boolean;
+  onResetNotice: () => void;
 };
 
 // 手写 Switch（CP5 S2：约 30 行，不引组件库）。currentColor 走 token。
@@ -120,6 +219,11 @@ type GotifyAPI = {
   setStoragePath: (path: string) => Promise<{ path?: string; restartRequired?: boolean }>;
   openStoragePath: () => Promise<void>;
   getApplications: () => Promise<ApplicationInfo[]>;
+  getSoundList: () => Promise<{ group: string; name: string; value: string }[]>;
+  previewSound: (value: string) => Promise<string | null>;
+  openExternal: (url: string) => Promise<boolean>;
+  notifyTest: (face: { tint: string; alpha: number }, acrylic: boolean) => Promise<boolean>;
+  setWindowMaterial: (material: "mica" | "acrylic") => Promise<boolean>;
   toggleFavorite: (id: number) => Promise<boolean>;
 };
 
@@ -182,22 +286,71 @@ function SettingsModal({
   onApplyStoragePath,
   applyingStoragePath,
   storageLockedByEnv,
+  onResetNotice,
 }: SettingsModalProps) {
   const [showToken, setShowToken] = useState(false);
   const [applications, setApplications] = useState<ApplicationInfo[]>([]);
+  // 提示音选择：两级级联（一级品牌 → 二级该品牌声音），选中即试听。
+  // soundBrand=null 是一级；保留上次展开的品牌方便连续试听。
+  const [soundList, setSoundList] = useState<{ group: string; name: string; value: string }[]>([]);
+  const [soundMenuOpen, setSoundMenuOpen] = useState(false);
+  const [soundBrand, setSoundBrand] = useState<string | null>(null);
+  // 主题工坊:浅/深两 tab;改动即时预览(直接注入 CSS 变量),取消关闭由 App 恢复
+  const [themeTab, setThemeTab] = useState<"light" | "dark">("light");
+
+  const patchWithPreview = (partial: Partial<Config>) => {
+    patch(partial);
+    applyThemeVars({ ...draft, ...partial });
+  };
+  const setBlock = (key: "bg" | "list" | "input", field: "tint" | "alpha", value: string | number) => {
+    const current = draft.themeCustom?.[themeTab]?.[key] || DEFAULT_CONFIG.themeCustom[themeTab][key];
+    const nextThemeCustom = {
+      ...draft.themeCustom,
+      [themeTab]: {
+        ...draft.themeCustom?.[themeTab],
+        [key]: { ...current, [field]: value }
+      }
+    };
+    patchWithPreview({ themeCustom: nextThemeCustom });
+  };
+  const setGlass = (field: "alpha" | "blur" | "tint", value: string | number) => {
+    const current = draft.glass?.[themeTab] || DEFAULT_CONFIG.glass[themeTab];
+    const nextGlass = { ...draft.glass, [themeTab]: { ...current, [field]: value } };
+    patchWithPreview({ glass: nextGlass });
+  };
+  const setCardGlass = (field: "alpha" | "tint", value: string | number) => {
+    const current = draft.cardGlass?.[themeTab] || DEFAULT_CONFIG.cardGlass[themeTab];
+    const nextCardGlass = { ...draft.cardGlass, [themeTab]: { ...current, [field]: value } };
+    patchWithPreview({ cardGlass: nextCardGlass });
+  };
+  const onMaterialChange = (material: "mica" | "acrylic") => {
+    patch({ windowMaterial: material });
+    window.gotifyAPI.setWindowMaterial(material);
+  };
+  const resetThemeDefaults = () => {
+    patchWithPreview({
+      glass: JSON.parse(JSON.stringify(DEFAULT_CONFIG.glass)),
+      themeCustom: JSON.parse(JSON.stringify(DEFAULT_CONFIG.themeCustom))
+    });
+  };
   // S10 根治：draft 模型。所有编辑落本地 draft，保存才提交；取消=关闭即弃
   // （父组件条件挂载保证下次打开从真实 config 重建）。旧实现直接改 App 的
   // config state，取消后脏值残留。
   const [draft, setDraft] = useState<Config>({ ...initialConfig });
   // 二轮 S5：脏稿两击确认关闭 + Esc（静默弃稿是 draft 模型的最后一块拼图）
   const [armedClose, setArmedClose] = useState(false);
+  // 三轮：关闭走退场动画（0.18s 淡出缩放）后再真卸载
+  const [exiting, setExiting] = useState(false);
   const draftDirty = JSON.stringify(draft) !== JSON.stringify(initialConfig);
   const requestClose = () => {
     if (draftDirty && !armedClose) {
       setArmedClose(true);
       return;
     }
-    onClose();
+    if (!exiting) {
+      setExiting(true);
+      window.setTimeout(onClose, 200);
+    }
   };
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -213,7 +366,40 @@ function SettingsModal({
     window.gotifyAPI.getApplications().then((apps) => {
       setApplications(Array.isArray(apps) ? apps : []);
     });
+    window.gotifyAPI.getSoundList().then((sounds) => {
+      setSoundList(Array.isArray(sounds) ? sounds : []);
+    });
+    // 三轮：notice 归弹窗会话——新会话清旧账（上次保存的成功/失败提示不再
+    // 跨会话残留；此前的「设置已保存，正在尝试重连」僵尸即此病）
+    onResetNotice();
   }, []);
+
+  const groupedSounds = useMemo(() => {
+    const groups: Record<string, { group: string; name: string; value: string }[]> = {};
+    soundList.forEach((s) => {
+      (groups[s.group] ||= []).push(s);
+    });
+    return groups;
+  }, [soundList]);
+  const currentSound = soundList.find((s) => s.value === draft.notificationSound);
+  // 只显声音名（品牌在二级菜单里可见，按钮上省掉）
+  const currentSoundLabel = currentSound?.name || draft.notificationSound?.split("/").pop() || "默认";
+
+  const previewOnly = async (value: string) => {
+    try {
+      const base64 = await window.gotifyAPI.previewSound(value);
+      if (base64) {
+        new Audio(`data:audio/ogg;base64,${base64}`).play();
+      }
+    } catch {
+      // 试听失败不打断选择
+    }
+  };
+  const onPickSound = (value: string) => {
+    patch({ notificationSound: value });
+    setSoundMenuOpen(false);
+    previewOnly(value);
+  };
 
   const patch = (partial: Partial<Config>) => setDraft((prev) => ({ ...prev, ...partial }));
   const onServerUrlChange = (event: ChangeEvent<HTMLInputElement>) => patch({ serverUrl: event.target.value });
@@ -242,8 +428,13 @@ function SettingsModal({
   };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-[3px] dark:bg-black/60" onClick={requestClose}></div>
-      <div className="relative flex w-[640px] max-h-[86vh] max-w-[92vw] flex-col overflow-hidden rounded-lg border border-black/[0.06] bg-panel shadow-2xl dark:border-white/[0.08]">
+      <div
+        className={`absolute inset-0 bg-black/15 backdrop-blur-[3px] dark:bg-black/40 settings-backdrop-enter ${exiting ? "settings-backdrop-exit" : ""}`}
+        onClick={requestClose}
+      ></div>
+      <div
+        className={`relative flex w-[640px] max-h-[86vh] max-w-[92vw] flex-col overflow-hidden rounded-lg border border-black/[0.06] bg-panel-glass settings-glass settings-glass-edge dark:border-white/[0.08] settings-panel-enter ${exiting ? "settings-exit" : ""}`}
+      >
         <div className="border-b border-border-light px-5 py-3 text-[18px] font-semibold text-text">设置</div>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 text-[13px]">
           <div className="rounded border border-border-light bg-card-hover-alt p-3">
@@ -278,6 +469,68 @@ function SettingsModal({
             </SettingRow>
             <SettingRow label="播放提示音">
               <Switch checked={draft.playSound} onChange={(v) => patch({ playSound: v })} />
+            </SettingRow>
+            <SettingRow label="提示音" hint="先选品牌再选声音，选中即试听；需开启上方「播放提示音」">
+              <div className="relative">
+                <button
+                  onClick={() => setSoundMenuOpen((prev) => !prev)}
+                  className="flex h-8 items-center gap-1 rounded-md border border-border bg-input px-2.5 text-[12px] text-text-soft hover:border-primary focus:outline-none"
+                >
+                  <span className="max-w-[130px] truncate">{currentSoundLabel}</span>
+                  <IconChevronDown className="h-3 w-3 text-text-muted" />
+                </button>
+                {soundMenuOpen ? (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setSoundMenuOpen(false)} />
+                    <div className="scroll-thin absolute right-0 top-full z-50 mt-1.5 max-h-72 min-w-[190px] overflow-y-auto rounded-md border border-border bg-panel py-1 shadow-lg">
+                      {!soundBrand ? (
+                        Object.entries(groupedSounds).map(([group, items]) => (
+                          <button
+                            key={group}
+                            onClick={() => setSoundBrand(group)}
+                            className={`flex w-full items-center justify-between px-4 py-1.5 text-left text-[13px] hover:bg-card-hover ${items.some((s) => s.value === draft.notificationSound) ? "font-semibold text-primary" : "text-text-soft"}`}
+                          >
+                            <span>{group}</span>
+                            <span className="text-[11px] tabular-nums text-text-muted">{items.length}</span>
+                          </button>
+                        ))
+                      ) : (
+                        <div>
+                          <div className="flex items-center gap-1 border-b border-border px-2 py-1.5">
+                            <button
+                              onClick={() => setSoundBrand(null)}
+                              className="rounded px-1.5 py-0.5 text-[12px] text-text-muted hover:bg-card-hover hover:text-text-soft"
+                            >
+                              ←
+                            </button>
+                            <span className="text-[12px] font-semibold text-text">{soundBrand}</span>
+                          </div>
+                          {(groupedSounds[soundBrand] || []).map((s) => (
+                            <button
+                              key={s.value}
+                              onClick={() => onPickSound(s.value)}
+                              className={`group flex w-full items-center gap-2 px-4 py-1 text-left text-[12px] hover:bg-card-hover ${s.value === draft.notificationSound ? "font-semibold text-primary" : "text-text-soft"}`}
+                            >
+                              <span className="min-w-0 flex-1 truncate">{s.name}</span>
+                              <span
+                                role="button"
+                                title="试听"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  previewOnly(s.value);
+                                }}
+                                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[8px] text-text-muted opacity-0 transition-opacity hover:bg-card-hover-alt hover:text-primary group-hover:opacity-100"
+                              >
+                                ▶
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : null}
+              </div>
             </SettingRow>
             <SettingRow label="启用主动重连">
               <Switch checked={draft.enableReconnect} onChange={(v) => patch({ enableReconnect: v })} />
@@ -369,6 +622,84 @@ function SettingsModal({
                 ))}
               </div>
             </SettingRow>
+            <div className="mt-2 border-t border-border-light pt-2">
+              <div className="mb-1.5 flex items-center justify-between">
+                <div className="text-[13px] text-text">主题工坊</div>
+                <button
+                  onClick={resetThemeDefaults}
+                  className="rounded border border-border bg-card px-2 py-0.5 text-[11px] text-text-soft hover:bg-card-hover"
+                >
+                  恢复默认
+                </button>
+              </div>
+              <div className="mb-1.5 flex gap-1">
+                {([["light", "浅色"], ["dark", "深色"]] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setThemeTab(value)}
+                    className={`rounded px-2.5 py-0.5 text-[11px] transition-colors ${themeTab === value ? "bg-primary text-white" : "border border-border bg-input text-text-soft hover:bg-card-hover"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <SettingRow label="实时磨砂桌面" hint="开=Acrylic（透出实时模糊的桌面内容）；关=Mica（壁纸静态采样，省电）">
+                <Switch checked={(draft.windowMaterial || "mica") === "acrylic"} onChange={(v) => onMaterialChange(v ? "acrylic" : "mica")} />
+              </SettingRow>
+              {([["bg", "窗口背景"], ["list", "消息列表"], ["input", "输入底色"]] as const).map(([key, label]) => {
+                const block: ThemeBlock = draft.themeCustom?.[themeTab]?.[key] || DEFAULT_CONFIG.themeCustom[themeTab][key];
+                return (
+                  <div key={key} className="flex items-center gap-2 py-1">
+                    <span className="w-16 shrink-0 text-[12px] text-text-soft">{label}</span>
+                    <ColorField value={block.tint} onChange={(hex) => setBlock(key, "tint", hex)} presets={PRESET_TINTS[themeTab]} />
+                    <AlphaSlider alpha={block.alpha} onChange={(next) => setBlock(key, "alpha", next)} />
+                  </div>
+                );
+              })}
+              {(() => {
+                const cardFace = draft.cardGlass?.[themeTab] || DEFAULT_CONFIG.cardGlass[themeTab];
+                return (
+                  <div className="flex flex-wrap items-center gap-2 border-t border-border-light py-1.5 pt-2">
+                    <span className="w-16 shrink-0 text-[12px] text-text-soft">通知弹卡</span>
+                    <ColorField value={cardFace.tint} onChange={(hex) => setCardGlass("tint", hex)} presets={PRESET_TINTS[themeTab]} />
+                    <AlphaSlider alpha={cardFace.alpha} min={0} max={95} onChange={(next) => setCardGlass("alpha", next)} />
+                    <label className="flex items-center gap-1.5 text-[11px] text-text-muted">
+                      磨砂底
+                      <Switch checked={draft.cardAcrylic !== false} onChange={(v) => patch({ cardAcrylic: v })} />
+                    </label>
+                    <button
+                      onClick={() => window.gotifyAPI.notifyTest(cardFace, draft.cardAcrylic !== false)}
+                      className="h-6 shrink-0 rounded border border-border bg-card px-2 text-[11px] text-text-soft hover:bg-card-hover"
+                    >
+                      测试弹卡
+                    </button>
+                  </div>
+                );
+              })()}
+              {(() => {
+                const glass: GlassMode = draft.glass?.[themeTab] || DEFAULT_CONFIG.glass[themeTab];
+                return (
+                  <div className="flex flex-wrap items-center gap-2 border-t border-border-light py-1.5 pt-2">
+                    <span className="w-16 shrink-0 text-[12px] text-text-soft">设置弹窗</span>
+                    <ColorField value={glass.tint} onChange={(hex) => setGlass("tint", hex)} presets={PRESET_TINTS[themeTab]} />
+                    <AlphaSlider alpha={glass.alpha} min={5} max={95} onChange={(next) => setGlass("alpha", next)} />
+                    <label className="flex items-center gap-1.5 text-[11px] text-text-muted">
+                      模糊
+                      <input
+                        type="range"
+                        min={0}
+                        max={40}
+                        value={glass.blur}
+                        onChange={(event) => setGlass("blur", Number(event.target.value))}
+                        className="w-20 accent-primary"
+                      />
+                      <span className="w-9 tabular-nums">{glass.blur}px</span>
+                    </label>
+                  </div>
+                );
+              })()}
+            </div>
           </div>
           <div className="rounded border border-border-light bg-card-hover-alt p-3">
             <div className="mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted">数据存储</div>
@@ -423,6 +754,28 @@ function SettingsModal({
   );
 }
 
+// 三轮：正文 URL → 独立按钮（gotify 协议无附件，Hotify 文件=extras 里的下载
+// 链接；提取单一真相=src/services/message-urls，弹卡与列表共用）。
+// 工坊统一透明度列:每行内联「透明+拉杆+%」同构(用户拍板回归每行);
+// 值=透明百分比(拉高更透),存储仍为 alpha
+function AlphaSlider({ alpha, onChange, min = 0, max = 100 }: { alpha: number; onChange: (next: number) => void; min?: number; max?: number }) {
+  const shown = Math.max(min, Math.min(max, 100 - Math.round(alpha * 100)));
+  return (
+    <label className="flex shrink-0 items-center gap-1.5 text-[11px] text-text-muted">
+      <span>透明</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={shown}
+        onChange={(event) => onChange((100 - Number(event.target.value)) / 100)}
+        className="w-20 accent-primary"
+      />
+      <span className="w-8 tabular-nums">{shown}%</span>
+    </label>
+  );
+}
+
 function MessageCard({ item, appLabel, onToggleFavorite, verificationCode }: { item: MessageItem; appLabel?: string; onToggleFavorite: (id: number) => void; verificationCode?: string }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -466,6 +819,7 @@ function MessageCard({ item, appLabel, onToggleFavorite, verificationCode }: { i
     if (rest) parts.push({ text: rest, code: false });
     return parts;
   }, [visibleMessage, verificationCode]);
+  const messageUrls = useMemo(() => extractMessageUrls(item), [item]);
   return (
     <div className="group flex gap-3 px-4 py-2 hover:bg-layer-hover">
       {priorityColor ? <div className={`w-1 shrink-0 rounded-full ${priorityColor}`}></div> : null}
@@ -500,6 +854,21 @@ function MessageCard({ item, appLabel, onToggleFavorite, verificationCode }: { i
             )
           )}
         </div>
+        {messageUrls.length > 0 ? (
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {messageUrls.map((url) => (
+              <button
+                key={url}
+                onClick={() => window.gotifyAPI.openExternal(url)}
+                title={url}
+                className="flex h-6 max-w-[260px] items-center gap-1 rounded border border-border bg-input px-2 text-[12px] text-text-soft hover:border-primary hover:text-primary"
+              >
+                <span className="shrink-0 text-[10px]">🔗</span>
+                <span className="truncate">{hostOf(url)}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
         {canCollapse ? (
           <button onClick={() => setExpanded((prev) => !prev)} className="mt-0.5 text-[12px] text-primary hover:text-primary-hover">
             {expanded ? "收起" : "展开"}
@@ -516,6 +885,16 @@ function App() {
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [status, setStatus] = useState<ConnectionStatus>({ connected: false, status: "未连接" });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // 主题工坊:config 落定/保存后注入变量;弹窗取消关闭时按已存 config 洗掉预览
+  useEffect(() => {
+    applyThemeVars(config);
+  }, [config]);
+  useEffect(() => {
+    if (!settingsOpen) {
+      applyThemeVars(config);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsOpen]);
   const [loading, setLoading] = useState(true);
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -627,7 +1006,8 @@ function App() {
     try {
       const saved = await window.gotifyAPI.saveConfig(draft);
       setConfig(saved);
-      setSettingsNotice({ text: "设置已保存，正在尝试重连", type: "info" });
+      // 保存成功不再写 notice：弹窗即将关闭，无人看见，只会在下次打开时
+      // 变成僵尸文案（弹窗关闭本身就是成功的反馈）
       const apps = await window.gotifyAPI.getApplications();
       setApplications(Array.isArray(apps) ? apps : []);
       setSettingsOpen(false);
@@ -802,7 +1182,7 @@ function App() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-bg">
       {/* 二轮 S1/S6：工具栏直透 Mica；分段控件；齿轮/⋯ 上移；删自恋计数 */}
       <div className="flex items-center gap-2 px-4 py-2.5">
         <div className="flex rounded-md bg-black/[0.05] p-0.5 dark:bg-white/[0.06]">
@@ -977,6 +1357,7 @@ function App() {
           onApplyStoragePath={onApplyStoragePath}
           applyingStoragePath={applyingStoragePath}
           storageLockedByEnv={storageLockedByEnv}
+          onResetNotice={() => setSettingsNotice({ text: "", type: "info" })}
         />
       ) : null}
     </div>
