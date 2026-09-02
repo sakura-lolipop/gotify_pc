@@ -31,11 +31,7 @@ jobs:
         run: node node_modules/electron/install.js
 
       - name: Build Windows installer
-        run: npm run build:win
-        env:
-          # builder 检测到 tag 会自动进 publish 模式要 GH_TOKEN——发布职责
-          # 归下方 softprops 上传步骤,构建只构建
-          EP_PUBLISH: never
+        run: npm run build:win:ci
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2

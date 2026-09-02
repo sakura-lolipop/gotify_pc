@@ -15,6 +15,7 @@
     "repack:icon": "electron-builder --dir --config.directories.output=dist-repack-icon --config.win.signAndEditExecutable=true",
     "build": "npm run build:assets && npm run prepare:icon && electron-builder",
     "build:win": "npm run build:assets && npm run prepare:icon && electron-builder --win",
+    "build:win:ci": "npm run build:assets && npm run prepare:icon && electron-builder --win --publish never",
     "build:win:clean": "node scripts/build-win-clean.js"
   },
   "devDependencies": {
