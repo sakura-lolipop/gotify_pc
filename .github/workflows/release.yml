@@ -24,6 +24,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # lockfile 被禁脚本配置污染过(hasInstallScript:false),npm ci 会跳过
+      # electron 的 postinstall → dist 无二进制 → builder rename electron.exe
+      # 失败。install.js 幂等(已下载则秒过),显式补一步兜底。
+      - name: Ensure electron binary
+        run: node node_modules/electron/install.js
+
       - name: Build Windows installer
         run: npm run build:win
 
