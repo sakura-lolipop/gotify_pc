@@ -1,1 +1,0 @@
-{"default":{"identifier":"default","description":"Default desktop capability for the React + Tauri Gotify client.","local":true,"windows":["main","toast"],"permissions":["core:default","core:tray:default","core:window:allow-set-theme","core:window:allow-hide","core:webview:allow-create-webview-window","dialog:default","notification:default","autostart:default"]}}

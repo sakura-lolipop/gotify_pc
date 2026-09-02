@@ -19,60 +19,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: "https://registry.npmjs.org"
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust build artifacts
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: "./tauri-app/src-tauri -> target"
-
-      - name: Install frontend dependencies
-        working-directory: tauri-app
-        run: npm install
-
-      - name: Sync tag version to project
-        shell: pwsh
-        run: |
-          $version = $env:GITHUB_REF_NAME.TrimStart('v')
-
-          Push-Location "tauri-app"
-          npm version $version --no-git-tag-version
-          Pop-Location
-
-          $cargoPath = "tauri-app/src-tauri/Cargo.toml"
-          $lines = Get-Content $cargoPath
-          $inPackage = $false
-          for ($i = 0; $i -lt $lines.Count; $i++) {
-            if ($lines[$i] -match '^\[package\]$') {
-              $inPackage = $true
-              continue
-            }
-            if ($inPackage -and $lines[$i] -match '^\[') {
-              break
-            }
-            if ($inPackage -and $lines[$i] -match '^version\s*=') {
-              $lines[$i] = "version = `"$version`""
-              break
-            }
-          }
-          Set-Content -Path $cargoPath -Value $lines -Encoding utf8
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build Windows installer
-        working-directory: tauri-app
-        run: npm run tauri:build
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build:win
 
-      - name: Create Release
+      - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            tauri-app/src-tauri/target/release/bundle/nsis/*.exe
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+            dist/*.exe
+            dist/*.exe.blockmap
+            dist/latest.yml
+          generate_release_notes: true
