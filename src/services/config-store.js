@@ -12,6 +12,8 @@ const DEFAULT_CONFIG = {
   notificationDuration: 5000,
   archiveExpiryMinutes: 60,
   codeSmartExpiry: true,
+  // 验证码静默自动复制（用户拍板：无任何提示）：消息到达即写剪贴板
+  autoCopyVerificationCode: true,
   theme: "system",
   // 主窗 DWM 材质：mica=壁纸静态采样（默认，省电）/ acrylic=实时磨砂桌面内容
   windowMaterial: "mica",

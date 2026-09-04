@@ -1,6 +1,6 @@
 {
   "name": "gotify-pc",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Gotify PC client based on Electron",
   "main": "main.js",
   "scripts": {

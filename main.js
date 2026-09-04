@@ -222,6 +222,18 @@ function applyWindowMaterial(material) {
   } catch {}
 }
 
+// 主窗「打开」单一写点（E13，动画方案见 electron.md）：全部显窗入口（托盘
+// 菜单/托盘单击/activate/弹卡打开消息列表）收拢到这一处。开窗动画最终方案
+// 为 D 路生命周期（销毁重建+预热），在 d-proper-window-lifecycle 分支落地
+// 验证；主线上暂为裸 show 的占位，合并后由该分支实现替换。
+function revealMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+  mainWindow.show();
+  mainWindow.focus();
+}
+
 function createWindow() {
   const config = configStore.get();
   mainWindow = new BrowserWindow({
@@ -265,14 +277,14 @@ function createTray() {
   const trayIcon = appIcon.resize({ width: 16, height: 16 });
   tray = new Tray(trayIcon);
   const contextMenu = Menu.buildFromTemplate([
-    { label: "显示主界面", click: () => mainWindow?.show() },
+    { label: "显示主界面", click: () => revealMainWindow() },
     { label: "设置", click: () => mainWindow?.webContents.send("open-settings") },
     { type: "separator" },
     { label: "退出", click: () => quitApp() }
   ]);
   tray.setToolTip("Gotify 客户端");
   tray.setContextMenu(contextMenu);
-  tray.on("click", () => mainWindow?.show());
+  tray.on("click", () => revealMainWindow());
 }
 
 async function forwardToBark(message, config) {
@@ -313,13 +325,28 @@ async function forwardToBark(message, config) {
 
 let catchUpRunning = false;
 
-// Missed-message catch-up (design borrowed from gotify-tray): after a WS
-// reconnect, pull recent messages via REST and replay any with id greater
-// than the newest one already in local history through the normal message
-// pipeline. Complements the WS heartbeat: the heartbeat detects a dead
-// socket fast, this recovers whatever was pushed while it was dead.
-// First connect after start() intentionally skips (launch-time history is
-// loaded elsewhere and would flood the replay).
+// 补拉防刷屏（用户拍板 2026-09-04，两条件过滤）：①时龄——超过
+// CATCHUP_STALE_MS 的离线期旧消息只进列表不弹卡（过期验证码/旧新闻弹了
+// 也是打扰，旧码更不该覆掉剪贴板）；②张数——时龄过滤后仍新鲜的消息超过
+// CATCHUP_POP_CAP → 整批静默（半弹不如不弹，提示音×N 同样是刷屏）。
+// 静默=完全静默：不弹卡、不自动复制，照常进历史+列表+转发。WS 实时推送
+// 永不受影响（silent 标记只在补拉路径置位）。
+const CATCHUP_STALE_MS = 10 * 60 * 1000;
+const CATCHUP_POP_CAP = 5;
+
+// 无/坏日期按新鲜处理：宁可多弹不静默丢提醒
+function isCatchupFresh(message) {
+  const sentAt = Date.parse(String(message?.date || ""));
+  return !Number.isFinite(sentAt) || Date.now() - sentAt <= CATCHUP_STALE_MS;
+}
+
+// Missed-message catch-up (design borrowed from gotify-tray): after every WS
+// open (first connect after launch/start included), pull recent messages via
+// REST and replay any with id greater than the newest one already in local
+// history through the normal message pipeline. Complements the WS heartbeat:
+// the heartbeat detects a dead socket fast, this recovers whatever was pushed
+// while it was dead — or while the whole app was closed (first-launch case).
+// Safe against redundant triggers: the watermark filter makes extra runs no-ops.
 async function catchUpMissedMessages() {
   if (catchUpRunning) {
     return;
@@ -333,9 +360,14 @@ async function catchUpMissedMessages() {
       return;
     }
     missed.reverse(); // server returns newest first; replay oldest first
-    console.log(`[CatchUp] replaying ${missed.length} missed message(s) after id ${lastId}`);
+    const freshCount = missed.filter(isCatchupFresh).length;
+    const suppressCards = freshCount > CATCHUP_POP_CAP;
+    console.log(
+      `[CatchUp] replaying ${missed.length} missed message(s) after id ${lastId}` +
+        (suppressCards ? ` (${freshCount} fresh > ${CATCHUP_POP_CAP}, cards suppressed)` : "")
+    );
     for (const message of missed) {
-      gotifyClient.processRestMessage(message);
+      gotifyClient.processRestMessage(message, suppressCards || !isCatchupFresh(message));
     }
     if (missed.length >= 50) {
       console.warn("[CatchUp] hit the 50-message fetch limit; older missed messages were not replayed");
@@ -348,7 +380,7 @@ async function catchUpMissedMessages() {
 }
 
 function bindGotifyEvents() {
-  gotifyClient.on("reconnected", () => {
+  gotifyClient.on("catchup", () => {
     catchUpMissedMessages();
   });
   gotifyClient.on("status", (payload) => {
@@ -366,20 +398,27 @@ function bindGotifyEvents() {
     }
     
     const enriched = appName ? { ...message, appname: appName } : message;
-    historyStore.add(enriched);
+    // silent=true 只来自补拉防刷屏（见 catchUpMissedMessages）：进历史/列表/
+    // 转发，但不弹卡不复制。落盘时剥掉传输标记，不污染历史 schema。
+    historyStore.add({ ...enriched, silent: undefined });
     mainWindow?.webContents.send("new-message", enriched);
     const config = configStore.get();
-    
+
     // Bark Forwarding
     forwardToBark(enriched, config);
 
-    notify(enriched, config);
+    if (!enriched.silent) {
+      notify(enriched, config);
+    }
   });
 }
 
 // 提示音品牌目录（assets/sounds/ 下一级）：顺序即下拉分组顺序
 const SOUND_BRAND_ORDER = ["huawei", "xiaomi", "apple", "oppo", "vivo", "houor", "meizu", "chuizi"];
 const SOUND_BRAND_NAMES = { huawei: "华为", xiaomi: "小米", apple: "Apple", oppo: "OPPO", vivo: "vivo", houor: "荣耀", meizu: "魅族", chuizi: "锤子" };
+// 用户本地铃声（自定义组）：userData/sounds/——升级不丢、不进 asar
+const customSoundsDir = () => path.join(app.getPath("userData"), "sounds");
+const CUSTOM_SOUND_RE = /^custom\/([\w .-]+\.(?:ogg|mp3|wav))$/i;
 
 function setupIpc() {
   ipcMain.handle("app:getVersion", () => `v${app.getVersion()}`);
@@ -407,17 +446,45 @@ function setupIpc() {
   // 品牌顺序+中文名在此单点定义，notifier 读文件走同一目录约定。
   ipcMain.handle("sounds:list", () => {
     const root = path.join(app.getAppPath(), "assets", "sounds");
+    const entries = [];
     try {
-      return SOUND_BRAND_ORDER.filter((brand) => fs.existsSync(path.join(root, brand))).flatMap((brand) =>
+      SOUND_BRAND_ORDER.filter((brand) => fs.existsSync(path.join(root, brand))).forEach((brand) => {
         fs
           .readdirSync(path.join(root, brand))
           .filter((f) => f.toLowerCase().endsWith(".ogg"))
           .sort((a, b) => a.localeCompare(b, "zh-Hans-CN", { numeric: true }))
-          .map((f) => ({ group: SOUND_BRAND_NAMES[brand], name: f.replace(/\.ogg$/i, ""), value: `${brand}/${f}` }))
-      );
-    } catch {
+          .forEach((f) => entries.push({ group: SOUND_BRAND_NAMES[brand], name: f.replace(/\.ogg$/i, ""), value: `${brand}/${f}` }));
+      });
+    } catch {}
+    try {
+      const customDir = customSoundsDir();
+      if (fs.existsSync(customDir)) {
+        fs
+          .readdirSync(customDir)
+          .filter((f) => CUSTOM_SOUND_RE.test(`custom/${f}`))
+          .sort((a, b) => a.localeCompare(b, "zh-Hans-CN", { numeric: true }))
+          .forEach((f) => entries.push({ group: "自定义", name: f.replace(/\.(ogg|mp3|wav)$/i, ""), value: `custom/${f}` }));
+      }
+    } catch {}
+    return entries;
+  });
+  // 上传本地铃声：文件选择器 → 拷进 userData/sounds（同名覆盖）
+  ipcMain.handle("sounds:upload", async () => {
+    const picked = await dialog.showOpenDialog(mainWindow, {
+      title: "选择铃声",
+      filters: [{ name: "音频", extensions: ["ogg", "mp3", "wav"] }],
+      properties: ["openFile", "multiSelections"]
+    });
+    if (picked.canceled || picked.filePaths.length === 0) {
       return [];
     }
+    fs.mkdirSync(customSoundsDir(), { recursive: true });
+    const copied = picked.filePaths.map((src) => {
+      const dest = path.join(customSoundsDir(), path.basename(src));
+      fs.copyFileSync(src, dest);
+      return path.basename(dest);
+    });
+    return copied;
   });
   // 工坊：测试弹卡（按草稿面色+磨砂底直弹，未保存也生效）
   ipcMain.handle("notify:test", (_, face, acrylic) => {
@@ -432,8 +499,16 @@ function setupIpc() {
     applyWindowMaterial(material);
     return true;
   });
-  // 试听：只放行 assets/sounds 下「品牌/文件.ogg」形态，杜绝目录穿越
+  // 试听：品牌（assets/sounds，asar 内）与自定义（userData/sounds）两形态，杜绝目录穿越
   ipcMain.handle("sounds:read", (_, value) => {
+    const custom = CUSTOM_SOUND_RE.exec(String(value || ""));
+    if (custom) {
+      try {
+        return fs.readFileSync(path.join(customSoundsDir(), custom[1])).toString("base64");
+      } catch {
+        return null;
+      }
+    }
     const match = /^([\w-]+)\/([\w .-]+\.ogg)$/.exec(String(value || ""));
     if (!match || !SOUND_BRAND_ORDER.includes(match[1])) {
       return null;
@@ -568,7 +643,8 @@ app.whenReady().then(() => {
   initNotifier({
     getMainWindow: () => mainWindow,
     getAppIcon: () => appIcon,
-    getConfig: () => configStore.get()
+    getConfig: () => configStore.get(),
+    revealMainWindow: () => revealMainWindow()
   });
   gotifyClient = new GotifyClient();
   bindGotifyEvents();
@@ -625,6 +701,6 @@ app.on("activate", () => {
   if (!mainWindow) {
     createWindow();
   } else {
-    mainWindow.show();
+    revealMainWindow();
   }
 });

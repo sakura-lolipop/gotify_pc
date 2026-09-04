@@ -15,6 +15,7 @@ const DEFAULT_CONFIG = {
   notificationDuration: 5000,
   archiveExpiryMinutes: 60,
   codeSmartExpiry: true,
+  autoCopyVerificationCode: true,
   theme: "system" as "system" | "light" | "dark",
   windowMaterial: "mica" as "mica" | "acrylic",
   minimizeToTray: true,
@@ -221,6 +222,7 @@ type GotifyAPI = {
   getApplications: () => Promise<ApplicationInfo[]>;
   getSoundList: () => Promise<{ group: string; name: string; value: string }[]>;
   previewSound: (value: string) => Promise<string | null>;
+  uploadSound: () => Promise<string[]>;
   openExternal: (url: string) => Promise<boolean>;
   notifyTest: (face: { tint: string; alpha: number }, acrylic: boolean) => Promise<boolean>;
   setWindowMaterial: (material: "mica" | "acrylic") => Promise<boolean>;
@@ -389,10 +391,20 @@ function SettingsModal({
     try {
       const base64 = await window.gotifyAPI.previewSound(value);
       if (base64) {
-        new Audio(`data:audio/ogg;base64,${base64}`).play();
+        const mime = /\.mp3$/i.test(value) ? "audio/mpeg" : /\.wav$/i.test(value) ? "audio/wav" : "audio/ogg";
+        new Audio(`data:${mime};base64,${base64}`).play();
       }
     } catch {
       // 试听失败不打断选择
+    }
+  };
+  // 上传本地铃声：选文件拷进 userData/sounds → 刷新清单并跳进自定义组
+  const onUploadSound = async () => {
+    const copied = await window.gotifyAPI.uploadSound();
+    if (copied && copied.length) {
+      const sounds = await window.gotifyAPI.getSoundList();
+      setSoundList(Array.isArray(sounds) ? sounds : []);
+      setSoundBrand("自定义");
     }
   };
   const onPickSound = (value: string) => {
@@ -484,16 +496,23 @@ function SettingsModal({
                     <div className="fixed inset-0 z-40" onClick={() => setSoundMenuOpen(false)} />
                     <div className="scroll-thin absolute right-0 top-full z-50 mt-1.5 max-h-72 min-w-[190px] overflow-y-auto rounded-md border border-border bg-panel py-1 shadow-lg">
                       {!soundBrand ? (
-                        Object.entries(groupedSounds).map(([group, items]) => (
-                          <button
-                            key={group}
-                            onClick={() => setSoundBrand(group)}
-                            className={`flex w-full items-center justify-between px-4 py-1.5 text-left text-[13px] hover:bg-card-hover ${items.some((s) => s.value === draft.notificationSound) ? "font-semibold text-primary" : "text-text-soft"}`}
-                          >
-                            <span>{group}</span>
-                            <span className="text-[11px] tabular-nums text-text-muted">{items.length}</span>
-                          </button>
-                        ))
+                        <>
+                          {Object.entries(groupedSounds).map(([group, items]) => (
+                            <button
+                              key={group}
+                              onClick={() => setSoundBrand(group)}
+                              className={`flex w-full items-center justify-between px-4 py-1.5 text-left text-[13px] hover:bg-card-hover ${items.some((s) => s.value === draft.notificationSound) ? "font-semibold text-primary" : "text-text-soft"}`}
+                            >
+                              <span>{group}</span>
+                              <span className="text-[11px] tabular-nums text-text-muted">{items.length}</span>
+                            </button>
+                          ))}
+                          <div className="mt-1 border-t border-border pt-1">
+                            <button onClick={onUploadSound} className="block w-full px-4 py-1.5 text-left text-[13px] text-primary hover:bg-card-hover">
+                              ＋ 上传本地铃声
+                            </button>
+                          </div>
+                        </>
                       ) : (
                         <div>
                           <div className="flex items-center gap-1 border-b border-border px-2 py-1.5">
@@ -565,6 +584,9 @@ function SettingsModal({
                 className="w-40 accent-primary"
               />
               <span className="w-14 text-right text-[12px] tabular-nums text-text-soft">{Math.max(5, draft.archiveExpiryMinutes)} 分钟</span>
+            </SettingRow>
+            <SettingRow label="验证码自动复制" hint="识别到验证码的消息到达时静默写入剪贴板">
+              <Switch checked={draft.autoCopyVerificationCode} onChange={(v) => patch({ autoCopyVerificationCode: v })} />
             </SettingRow>
             <SettingRow label="验证码按短信有效期存档" hint="按短信中的「N分钟」存档，识别不到时回落到上方时长">
               <Switch checked={draft.codeSmartExpiry} onChange={(v) => patch({ codeSmartExpiry: v })} />

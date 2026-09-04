@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld("gotifyAPI", {
   saveConfig: (config) => ipcRenderer.invoke("config:save", config),
   getSoundList: () => ipcRenderer.invoke("sounds:list"),
   previewSound: (value) => ipcRenderer.invoke("sounds:read", value),
+  uploadSound: () => ipcRenderer.invoke("sounds:upload"),
   openExternal: (url) => ipcRenderer.invoke("shell:openExternal", url),
   notifyTest: (face, acrylic) => ipcRenderer.invoke("notify:test", face, acrylic),
   setWindowMaterial: (material) => ipcRenderer.invoke("theme:setMaterial", material),

@@ -7,7 +7,6 @@ class GotifyClient extends EventEmitter {
     this.ws = null;
     this.reconnectTimer = null;
     this.connected = false;
-    this.hasConnectedOnce = false;
     this.config = null;
     this.reconnectDelay = 5000;
     this.intentionalDisconnect = false;
@@ -39,7 +38,6 @@ class GotifyClient extends EventEmitter {
     this.debugEnabled = Boolean(config?.debugLogs) || String(process.env.GOTIFY_DEBUG_WS || "").trim() === "1";
     this.intentionalDisconnect = false;
     this.lastErrorMessage = "";
-    this.hasConnectedOnce = false;
     this.debug("info", "start", { server: this.maskServer(this.config.serverUrl) });
     this.connect();
   }
@@ -79,12 +77,13 @@ class GotifyClient extends EventEmitter {
           return;
         }
         this.debug("info", "open", { socketId });
-        const isReconnect = this.hasConnectedOnce;
-        this.hasConnectedOnce = true;
         this.setConnected(true, "已连接");
-        if (isReconnect) {
-          this.emit("reconnected");
-        }
+        // 每次 open 都发 catchup（含进程首连与 stop/start 后的首连，2026-09-04
+        // 裁定）：离线期间的消息靠 REST 水位补齐。旧版只在同进程二次 open 发
+        // （"reconnected"），而 renderer 只读本地历史、没人拉服务器侧，导致
+        // 首启动/重开后离线期消息既不弹也不进列表。幂等性由 main 侧按本地
+        // 水位（id > getMaxId）过滤兜底，重复触发只是空拉。
+        this.emit("catchup");
         this.reconnectDelay = 5000;
         this.lastErrorMessage = "";
         this.startHeartbeat();
@@ -171,9 +170,13 @@ class GotifyClient extends EventEmitter {
   // Re-entry point for catch-up messages: runs the same normalize → dedup →
   // emit pipeline as WS pushes, so a message delivered over WS while the
   // catch-up fetch was in flight is dropped here instead of duplicating the
-  // notification card.
-  processRestMessage(message) {
+  // notification card. silent=true marks the replay as card-suppressed (catch-up
+  // flood/staleness filtering in main); WS pushes never set it.
+  processRestMessage(message, silent = false) {
     const normalized = this.normalizeMessage(message);
+    if (silent) {
+      normalized.silent = true;
+    }
     if (this.isDuplicate(normalized)) {
       this.debug("warn", "duplicate_drop", { source: "rest", id: normalized.id });
       return false;

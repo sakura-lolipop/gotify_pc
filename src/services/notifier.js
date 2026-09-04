@@ -15,11 +15,15 @@ const APP_USER_MODEL_ID = "com.gotify.client.desktop";
 let getMainWindow = () => null;
 let getAppIcon = () => null;
 let getConfig = () => ({});
+// E13：主窗「打开」统一走 main 的 revealMainWindow（带开窗动画的单一写点）。
+// 未注入时回落裸 show+focus，保持 notifier 可独立工作。
+let revealMainWindowImpl = null;
 
-function initNotifier({ getMainWindow: windowGetter, getAppIcon: iconGetter, getConfig: configGetter }) {
+function initNotifier({ getMainWindow: windowGetter, getAppIcon: iconGetter, getConfig: configGetter, revealMainWindow: revealGetter }) {
   getMainWindow = windowGetter || getMainWindow;
   getAppIcon = iconGetter || getAppIcon;
   getConfig = configGetter || getConfig;
+  revealMainWindowImpl = revealGetter || revealMainWindowImpl;
   registerCardIpc();
 }
 
@@ -73,10 +77,20 @@ function isPopupMutedForApp(config, appid) {
   return mutedApps.includes(id);
 }
 
-// 弹卡提示音：assets/sounds/<品牌>/<文件>.ogg（asar 内 fs 透明读取）→ data URI
-// 嵌进卡 HTML。校验与 main 的 sounds:read 同一形态；读不到回落无声（弹卡不因
-// 音频缺位失败）。
+// 弹卡提示音：品牌=assets/sounds/<品牌>/<文件>.ogg（asar 内）；自定义=
+// userData/sounds/<文件>（ogg|mp3|wav）。校验形态与 main 的 sounds:read 同一；
+// 读不到回落无声（弹卡不因音频缺位失败）。
 function readSoundDataUri(value) {
+  const custom = /^custom\/([\w .-]+\.(?:ogg|mp3|wav))$/i.exec(String(value || ""));
+  if (custom) {
+    try {
+      const buffer = fs.readFileSync(path.join(app.getPath("userData"), "sounds", custom[1]));
+      const mime = /\.(mp3)$/i.test(custom[1]) ? "audio/mpeg" : /\.(wav)$/i.test(custom[1]) ? "audio/wav" : "audio/ogg";
+      return `data:${mime};base64,${buffer.toString("base64")}`;
+    } catch {
+      return "";
+    }
+  }
   const match = /^([\w-]+)\/([\w .-]+\.ogg)$/.exec(String(value || ""));
   if (!match) {
     return "";
@@ -96,6 +110,15 @@ function readSoundDataUri(value) {
 // 卡片管当下，中心管回看。Muted apps surface nowhere (same as before the
 // notifier extraction).
 function notify(message, config) {
+  // 验证码静默自动复制（无任何提示，用户拍板）：剪贴板是独立出口，不受
+  // 弹窗屏蔽/弹窗开关影响；提取 regex 与卡片/中心同一真相（上方单一函数）。
+  // WS 与断线补投（processRestMessage 同 emit）都过这里，天然全覆盖。
+  if (config.autoCopyVerificationCode) {
+    const code = extractVerificationCode(message.title, message.message);
+    if (code) {
+      clipboard.writeText(code);
+    }
+  }
   if (isPopupMutedForApp(config, message.appid)) {
     return;
   }
@@ -613,6 +636,10 @@ function registerCardIpc() {
   });
   ipcMain.on("custom-notification-open-main", (_, windowId) => {
     closeCustomNotificationWindow(windowId);
+    if (revealMainWindowImpl) {
+      revealMainWindowImpl();
+      return;
+    }
     const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.show();

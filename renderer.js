@@ -24615,6 +24615,7 @@ var DEFAULT_CONFIG = {
   notificationDuration: 5e3,
   archiveExpiryMinutes: 60,
   codeSmartExpiry: true,
+  autoCopyVerificationCode: true,
   theme: "system",
   windowMaterial: "mica",
   minimizeToTray: true,
@@ -24876,9 +24877,18 @@ function SettingsModal({
     try {
       const base64 = await window.gotifyAPI.previewSound(value);
       if (base64) {
-        new Audio(`data:audio/ogg;base64,${base64}`).play();
+        const mime = /\.mp3$/i.test(value) ? "audio/mpeg" : /\.wav$/i.test(value) ? "audio/wav" : "audio/ogg";
+        new Audio(`data:${mime};base64,${base64}`).play();
       }
     } catch (e) {
+    }
+  };
+  const onUploadSound = async () => {
+    const copied = await window.gotifyAPI.uploadSound();
+    if (copied && copied.length) {
+      const sounds = await window.gotifyAPI.getSoundList();
+      setSoundList(Array.isArray(sounds) ? sounds : []);
+      setSoundBrand("\u81EA\u5B9A\u4E49");
     }
   };
   const onPickSound = (value) => {
@@ -24966,18 +24976,21 @@ function SettingsModal({
                 ),
                 soundMenuOpen ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
                   /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "fixed inset-0 z-40", onClick: () => setSoundMenuOpen(false) }),
-                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "scroll-thin absolute right-0 top-full z-50 mt-1.5 max-h-72 min-w-[190px] overflow-y-auto rounded-md border border-border bg-panel py-1 shadow-lg", children: !soundBrand ? Object.entries(groupedSounds).map(([group, items]) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-                    "button",
-                    {
-                      onClick: () => setSoundBrand(group),
-                      className: `flex w-full items-center justify-between px-4 py-1.5 text-left text-[13px] hover:bg-card-hover ${items.some((s) => s.value === draft.notificationSound) ? "font-semibold text-primary" : "text-text-soft"}`,
-                      children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: group }),
-                        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "text-[11px] tabular-nums text-text-muted", children: items.length })
-                      ]
-                    },
-                    group
-                  )) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "scroll-thin absolute right-0 top-full z-50 mt-1.5 max-h-72 min-w-[190px] overflow-y-auto rounded-md border border-border bg-panel py-1 shadow-lg", children: !soundBrand ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+                    Object.entries(groupedSounds).map(([group, items]) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+                      "button",
+                      {
+                        onClick: () => setSoundBrand(group),
+                        className: `flex w-full items-center justify-between px-4 py-1.5 text-left text-[13px] hover:bg-card-hover ${items.some((s) => s.value === draft.notificationSound) ? "font-semibold text-primary" : "text-text-soft"}`,
+                        children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: group }),
+                          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "text-[11px] tabular-nums text-text-muted", children: items.length })
+                        ]
+                      },
+                      group
+                    )),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-1 border-t border-border pt-1", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: onUploadSound, className: "block w-full px-4 py-1.5 text-left text-[13px] text-primary hover:bg-card-hover", children: "\uFF0B \u4E0A\u4F20\u672C\u5730\u94C3\u58F0" }) })
+                  ] }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [
                     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-1 border-b border-border px-2 py-1.5", children: [
                       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                         "button",
@@ -25056,6 +25069,7 @@ function SettingsModal({
                   " \u5206\u949F"
                 ] })
               ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u9A8C\u8BC1\u7801\u81EA\u52A8\u590D\u5236", hint: "\u8BC6\u522B\u5230\u9A8C\u8BC1\u7801\u7684\u6D88\u606F\u5230\u8FBE\u65F6\u9759\u9ED8\u5199\u5165\u526A\u8D34\u677F", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.autoCopyVerificationCode, onChange: (v) => patch({ autoCopyVerificationCode: v }) }) }),
               /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u9A8C\u8BC1\u7801\u6309\u77ED\u4FE1\u6709\u6548\u671F\u5B58\u6863", hint: "\u6309\u77ED\u4FE1\u4E2D\u7684\u300CN\u5206\u949F\u300D\u5B58\u6863\uFF0C\u8BC6\u522B\u4E0D\u5230\u65F6\u56DE\u843D\u5230\u4E0A\u65B9\u65F6\u957F", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.codeSmartExpiry, onChange: (v) => patch({ codeSmartExpiry: v }) }) }),
               /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "border-t border-border-light pt-2", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[13px] text-text", children: "\u5C4F\u853D\u5F39\u7A97\u5206\u7EC4" }),
