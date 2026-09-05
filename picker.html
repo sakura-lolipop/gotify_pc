@@ -20,7 +20,8 @@
   }
   #search {
     width: 100%; padding: 8px 14px; border: none; border-bottom: 1px solid var(--border);
-    background: var(--input); color: var(--text); font-size: 13px; outline: none;
+    background: transparent; /* Win+V 风格：无独立输入块——文字直接浮在窗体毛玻璃上，仅发丝线分隔 */
+    color: var(--text); font-size: 13px; outline: none;
   }
   #search::placeholder { color: var(--text-muted); }
   #list { height: calc(100% - 32px - 38px); overflow-y: auto; padding: 4px 0; }
