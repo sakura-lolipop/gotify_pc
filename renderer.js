@@ -1083,7 +1083,7 @@ var require_react_development = __commonJS({
           }
           return dispatcher.useContext(Context);
         }
-        function useState2(initialState) {
+        function useState3(initialState) {
           var dispatcher = resolveDispatcher();
           return dispatcher.useState(initialState);
         }
@@ -1886,7 +1886,7 @@ var require_react_development = __commonJS({
         exports.useMemo = useMemo2;
         exports.useReducer = useReducer;
         exports.useRef = useRef;
-        exports.useState = useState2;
+        exports.useState = useState3;
         exports.useSyncExternalStore = useSyncExternalStore;
         exports.useTransition = useTransition;
         exports.version = ReactVersion;
@@ -24463,11 +24463,11 @@ var require_react_jsx_runtime_development = __commonJS({
             return jsxWithValidation(type, props, key, false);
           }
         }
-        var jsx3 = jsxWithValidationDynamic;
-        var jsxs3 = jsxWithValidationStatic;
+        var jsx4 = jsxWithValidationDynamic;
+        var jsxs4 = jsxWithValidationStatic;
         exports.Fragment = REACT_FRAGMENT_TYPE;
-        exports.jsx = jsx3;
-        exports.jsxs = jsxs3;
+        exports.jsx = jsx4;
+        exports.jsxs = jsxs4;
       })();
     }
   }
@@ -24522,7 +24522,7 @@ var require_message_urls = __commonJS({
 });
 
 // renderer.tsx
-var import_react = __toESM(require_react());
+var import_react2 = __toESM(require_react());
 var import_client = __toESM(require_client());
 
 // renderer-icons.tsx
@@ -24603,7 +24603,89 @@ function IconInbox({ className = "h-4 w-4" }) {
 
 // renderer.tsx
 var import_message_urls = __toESM(require_message_urls());
+
+// clip-history-panel.tsx
+var import_react = __toESM(require_react());
 var import_jsx_runtime2 = __toESM(require_jsx_runtime());
+function entrySummary(entry) {
+  var _a;
+  const items = ((_a = entry == null ? void 0 : entry.slot) == null ? void 0 : _a.items) || [];
+  const first = items[0];
+  if (items.length > 0 && items.every((it) => (it == null ? void 0 : it.kind) === "text")) {
+    const text = String((first == null ? void 0 : first.text) || "").replace(/\s+/g, " ").trim();
+    return { kind: "\u6587\u672C", preview: text.slice(0, 36) || "\uFF08\u7A7A\uFF09" };
+  }
+  if (items.length === 1 && (first == null ? void 0 : first.kind) === "image") {
+    const kb = Math.max(1, ((first == null ? void 0 : first.size) || 0) / 1024 | 0);
+    return { kind: "\u56FE\u7247", preview: `${(first == null ? void 0 : first.name) || "image"} \xB7 ${kb}KB` };
+  }
+  const files = items.filter((it) => (it == null ? void 0 : it.kind) === "file");
+  if (files.length > 0) {
+    const names = files.slice(0, 2).map((it) => it == null ? void 0 : it.name).join("\u3001");
+    return { kind: "\u6587\u4EF6", preview: `${files.length} \u4E2A\u6587\u4EF6\uFF1A${names}${files.length > 2 ? "\u2026" : ""}` };
+  }
+  return { kind: "\u672A\u77E5", preview: "" };
+}
+function ClipHistoryPanel({ formatTime }) {
+  const [entries, setEntries] = (0, import_react.useState)(null);
+  const [state, setState] = (0, import_react.useState)("idle");
+  const [replayNote, setReplayNote] = (0, import_react.useState)(null);
+  const load = () => {
+    setState("loading");
+    window.gotifyAPI.getClipboardHistory().then((result) => {
+      if ((result == null ? void 0 : result.ok) && Array.isArray(result.entries)) {
+        setEntries(result.entries);
+        setState(result.entries.length > 0 ? "idle" : "empty");
+      } else {
+        setState("error");
+      }
+    }).catch(() => setState("error"));
+  };
+  const replay = (entry) => {
+    setReplayNote("\u6B63\u5728\u91CD\u653E\u2026");
+    window.gotifyAPI.replayClipboardHistory(entry).then((r) => setReplayNote((r == null ? void 0 : r.ok) ? "\u5DF2\u91CD\u653E\u5230\u672C\u673A\u526A\u8D34\u677F\uFF08\u81EA\u52A8\u91CD\u65B0\u540C\u6B65\uFF09" : `\u91CD\u653E\u5931\u8D25\uFF1A${(r == null ? void 0 : r.reason) || "\u5185\u5BB9\u4E0D\u53EF\u7528\uFF08\u53EF\u80FD\u5DF2\u8FC7\u671F\uFF09"}`)).catch(() => setReplayNote("\u91CD\u653E\u5931\u8D25"));
+  };
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "mt-2 border-t border-border-light pt-2", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "mb-1.5 flex items-center justify-between", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[13px] text-text", children: "\u526A\u8D34\u677F\u5386\u53F2" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+        "button",
+        {
+          type: "button",
+          onClick: load,
+          className: "rounded border border-border px-2 py-0.5 text-[11px] text-text-soft transition-colors hover:bg-card-hover",
+          children: state === "loading" ? "\u62C9\u53D6\u4E2D\u2026" : "\u5237\u65B0"
+        }
+      )
+    ] }),
+    replayNote ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] text-text-muted", children: replayNote }) : null,
+    state === "empty" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[11px] text-text-muted", children: "\u6682\u65E0\u5386\u53F2\uFF08\u670D\u52A1\u7AEF\u627E\u56DE\u73AF\u6700\u591A 20 \u6761\uFF09" }) : null,
+    state === "error" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[11px] text-danger-text", children: "\u62C9\u53D6\u5931\u8D25\uFF08\u670D\u52A1\u5668\u4E0D\u53EF\u8FBE\u6216\u7248\u672C\u8FC7\u65E7\uFF09" }) : null,
+    entries && entries.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "max-h-40 overflow-y-auto", children: entries.map((entry, index) => {
+      var _a;
+      const { kind, preview } = entrySummary(entry);
+      return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+        "button",
+        {
+          type: "button",
+          title: "\u91CD\u653E\u5230\u672C\u673A\u526A\u8D34\u677F\uFF08\u91CD\u65B0\u540C\u6B65\u5230\u6240\u6709\u8BBE\u5907\uFF09",
+          onClick: () => replay(entry),
+          className: "flex w-full items-center gap-2 rounded px-1.5 py-1 text-left transition-colors hover:bg-card-hover",
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "shrink-0 rounded bg-card-hover px-1.5 py-0.5 text-[10px] text-text-muted", children: kind }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "min-w-0 flex-1 truncate text-[12px] text-text-soft", children: preview }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "shrink-0 text-[10px] text-text-muted", children: formatTime(((_a = entry == null ? void 0 : entry.slot) == null ? void 0 : _a.ts) || 0) })
+          ]
+        },
+        (entry == null ? void 0 : entry.hlc) || index
+      );
+    }) }) : null,
+    state === "idle" && !entries ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[11px] text-text-muted", children: "\u70B9\u300C\u5237\u65B0\u300D\u62C9\u53D6\u6700\u8FD1 20 \u6761\uFF1B\u70B9\u6761\u76EE=\u91CD\u653E\u5230\u672C\u673A\u526A\u8D34\u677F\u5E76\u91CD\u65B0\u540C\u6B65" }) : null
+  ] });
+}
+
+// renderer.tsx
+var import_jsx_runtime3 = __toESM(require_jsx_runtime());
 var DEFAULT_CONFIG = {
   serverUrl: "",
   clientToken: "",
@@ -24664,8 +24746,8 @@ var PRESET_TINTS = {
   dark: ["#1e3a5f", "#1f2937", "#17332b", "#2d2440", "#3a2418", "#12333d", "#3a1f24", "#0f1b2d", "#201a16", "#141414"]
 };
 function ColorField({ value, onChange, presets }) {
-  const [text, setText] = (0, import_react.useState)(value);
-  (0, import_react.useEffect)(() => {
+  const [text, setText] = (0, import_react2.useState)(value);
+  (0, import_react2.useEffect)(() => {
     setText(value);
   }, [value]);
   const commit = (raw) => {
@@ -24674,8 +24756,8 @@ function ColorField({ value, onChange, presets }) {
       onChange(v.toLowerCase());
     }
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-1.5", children: [
-    presets.map((c) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex items-center gap-1.5", children: [
+    presets.map((c) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
       "button",
       {
         type: "button",
@@ -24686,7 +24768,7 @@ function ColorField({ value, onChange, presets }) {
       },
       c
     )),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
       "input",
       {
         type: "color",
@@ -24695,7 +24777,7 @@ function ColorField({ value, onChange, presets }) {
         className: "h-6 w-7 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0.5"
       }
     ),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
       "input",
       {
         value: text,
@@ -24723,7 +24805,7 @@ function applyThemeVars(cfg) {
   });
 }
 function Switch({ checked, onChange, disabled = false, danger = false }) {
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
     "button",
     {
       type: "button",
@@ -24732,12 +24814,12 @@ function Switch({ checked, onChange, disabled = false, danger = false }) {
       disabled,
       onClick: () => onChange(!checked),
       className: `relative h-5 w-9 shrink-0 rounded-full transition-colors focus:outline-none disabled:opacity-40 ${checked ? danger ? "bg-danger-text" : "bg-primary" : "bg-text-disabled"}`,
-      children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${checked ? "left-[18px]" : "left-0.5"}` })
+      children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: `absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${checked ? "left-[18px]" : "left-0.5"}` })
     }
   );
 }
 function Chip({ label, active, onClick }) {
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
     "button",
     {
       type: "button",
@@ -24748,13 +24830,20 @@ function Chip({ label, active, onClick }) {
   );
 }
 function SettingRow({ label, hint, children }) {
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center justify-between gap-3 py-1.5", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "min-w-0", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[13px] text-text", children: label }),
-      hint ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-0.5 text-[11px] leading-snug text-text-muted", children: hint }) : null
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex items-center justify-between gap-3 py-1.5", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "min-w-0", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "text-[13px] text-text", children: label }),
+      hint ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mt-0.5 text-[11px] leading-snug text-text-muted", children: hint }) : null
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex w-44 shrink-0 items-center justify-end gap-2", children })
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "flex w-44 shrink-0 items-center justify-end gap-2", children })
   ] });
+}
+function formatDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 function dateGroupLabel(value) {
   const date = new Date(value);
@@ -24799,14 +24888,14 @@ function SettingsModal({
   storageLockedByEnv,
   onResetNotice
 }) {
-  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m;
-  const [showToken, setShowToken] = (0, import_react.useState)(false);
-  const [applications, setApplications] = (0, import_react.useState)([]);
-  const [soundList, setSoundList] = (0, import_react.useState)([]);
-  const [soundMenuOpen, setSoundMenuOpen] = (0, import_react.useState)(false);
-  const [soundBrand, setSoundBrand] = (0, import_react.useState)(null);
-  const [themeTab, setThemeTab] = (0, import_react.useState)("light");
-  const [clipCap, setClipCap] = (0, import_react.useState)(null);
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
+  const [showToken, setShowToken] = (0, import_react2.useState)(false);
+  const [applications, setApplications] = (0, import_react2.useState)([]);
+  const [soundList, setSoundList] = (0, import_react2.useState)([]);
+  const [soundMenuOpen, setSoundMenuOpen] = (0, import_react2.useState)(false);
+  const [soundBrand, setSoundBrand] = (0, import_react2.useState)(null);
+  const [themeTab, setThemeTab] = (0, import_react2.useState)("light");
+  const [clipCap, setClipCap] = (0, import_react2.useState)(null);
   const patchWithPreview = (partial) => {
     patch(partial);
     applyThemeVars({ ...draft, ...partial });
@@ -24845,9 +24934,9 @@ function SettingsModal({
       themeCustom: JSON.parse(JSON.stringify(DEFAULT_CONFIG.themeCustom))
     });
   };
-  const [draft, setDraft] = (0, import_react.useState)({ ...initialConfig });
-  const [armedClose, setArmedClose] = (0, import_react.useState)(false);
-  const [exiting, setExiting] = (0, import_react.useState)(false);
+  const [draft, setDraft] = (0, import_react2.useState)({ ...initialConfig });
+  const [armedClose, setArmedClose] = (0, import_react2.useState)(false);
+  const [exiting, setExiting] = (0, import_react2.useState)(false);
   const draftDirty = JSON.stringify(draft) !== JSON.stringify(initialConfig);
   const requestClose = () => {
     if (draftDirty && !armedClose) {
@@ -24859,7 +24948,7 @@ function SettingsModal({
       window.setTimeout(onClose, 200);
     }
   };
-  (0, import_react.useEffect)(() => {
+  (0, import_react2.useEffect)(() => {
     const onKey = (event) => {
       if (event.key === "Escape") {
         requestClose();
@@ -24868,7 +24957,7 @@ function SettingsModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
-  (0, import_react.useEffect)(() => {
+  (0, import_react2.useEffect)(() => {
     window.gotifyAPI.getApplications().then((apps) => {
       setApplications(Array.isArray(apps) ? apps : []);
     });
@@ -24877,7 +24966,7 @@ function SettingsModal({
     });
     onResetNotice();
   }, []);
-  (0, import_react.useEffect)(() => {
+  (0, import_react2.useEffect)(() => {
     var _a2;
     if (!((_a2 = draft.clipboardSync) == null ? void 0 : _a2.enabled)) {
       setClipCap(null);
@@ -24900,7 +24989,7 @@ function SettingsModal({
       window.clearTimeout(timer);
     };
   }, [(_a = draft.clipboardSync) == null ? void 0 : _a.enabled, draft.serverUrl, draft.clientToken]);
-  const groupedSounds = (0, import_react.useMemo)(() => {
+  const groupedSounds = (0, import_react2.useMemo)(() => {
     const groups = {};
     soundList.forEach((s) => {
       var _a2;
@@ -24952,26 +25041,26 @@ function SettingsModal({
     } catch (e) {
     }
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-3", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "fixed inset-0 z-50 flex items-center justify-center p-3", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
       "div",
       {
         className: `absolute inset-0 bg-black/15 backdrop-blur-[3px] dark:bg-black/40 settings-backdrop-enter ${exiting ? "settings-backdrop-exit" : ""}`,
         onClick: requestClose
       }
     ),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
       "div",
       {
         className: `relative flex w-[640px] max-h-[86vh] max-w-[92vw] flex-col overflow-hidden rounded-lg border border-black/[0.06] bg-panel-glass settings-glass settings-glass-edge dark:border-white/[0.08] settings-panel-enter ${exiting ? "settings-exit" : ""}`,
         children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "border-b border-border-light px-5 py-3 text-[18px] font-semibold text-text", children: "\u8BBE\u7F6E" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 text-[13px]", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u670D\u52A1\u5668" }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-3 py-1.5", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "w-24 text-[13px] text-text shrink-0", children: "\u670D\u52A1\u5668\u5730\u5740" }),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "border-b border-border-light px-5 py-3 text-[18px] font-semibold text-text", children: "\u8BBE\u7F6E" }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4 text-[13px]", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u670D\u52A1\u5668" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex items-center gap-3 py-1.5", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "w-24 text-[13px] text-text shrink-0", children: "\u670D\u52A1\u5668\u5730\u5740" }),
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                   "input",
                   {
                     value: draft.serverUrl,
@@ -24981,9 +25070,9 @@ function SettingsModal({
                   }
                 )
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-3 py-1.5", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "w-24 text-[13px] text-text shrink-0", children: "\u5BA2\u6237\u7AEF\u4EE4\u724C" }),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex items-center gap-3 py-1.5", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "w-24 text-[13px] text-text shrink-0", children: "\u5BA2\u6237\u7AEF\u4EE4\u724C" }),
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                   "input",
                   {
                     type: showToken ? "text" : "password",
@@ -24993,44 +25082,44 @@ function SettingsModal({
                     className: "h-8 flex-1 rounded border border-border bg-input text-text px-3 text-[13px] outline-none focus:border-primary"
                   }
                 ),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => setShowToken((v) => !v), className: "h-8 rounded border border-border bg-card px-3 text-[12px] text-text-soft hover:bg-card-hover", children: showToken ? "\u9690\u85CF" : "\u663E\u793A" })
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { onClick: () => setShowToken((v) => !v), className: "h-8 rounded border border-border bg-card px-3 text-[12px] text-text-soft hover:bg-card-hover", children: showToken ? "\u9690\u85CF" : "\u663E\u793A" })
               ] })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u901A\u77E5" }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u663E\u793A\u81EA\u5B9A\u4E49\u5F39\u7A97\u901A\u77E5", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.showCustomNotification, onChange: (v) => patch({ showCustomNotification: v }) }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u64AD\u653E\u63D0\u793A\u97F3", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.playSound, onChange: (v) => patch({ playSound: v }) }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u63D0\u793A\u97F3", hint: "\u5148\u9009\u54C1\u724C\u518D\u9009\u58F0\u97F3\uFF0C\u9009\u4E2D\u5373\u8BD5\u542C\uFF1B\u9700\u5F00\u542F\u4E0A\u65B9\u300C\u64AD\u653E\u63D0\u793A\u97F3\u300D", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "relative", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u901A\u77E5" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u663E\u793A\u81EA\u5B9A\u4E49\u5F39\u7A97\u901A\u77E5", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Switch, { checked: draft.showCustomNotification, onChange: (v) => patch({ showCustomNotification: v }) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u64AD\u653E\u63D0\u793A\u97F3", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Switch, { checked: draft.playSound, onChange: (v) => patch({ playSound: v }) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u63D0\u793A\u97F3", hint: "\u5148\u9009\u54C1\u724C\u518D\u9009\u58F0\u97F3\uFF0C\u9009\u4E2D\u5373\u8BD5\u542C\uFF1B\u9700\u5F00\u542F\u4E0A\u65B9\u300C\u64AD\u653E\u63D0\u793A\u97F3\u300D", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "relative", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
                   "button",
                   {
                     onClick: () => setSoundMenuOpen((prev) => !prev),
                     className: "flex h-8 items-center gap-1 rounded-md border border-border bg-input px-2.5 text-[12px] text-text-soft hover:border-primary focus:outline-none",
                     children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "max-w-[130px] truncate", children: currentSoundLabel }),
-                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IconChevronDown, { className: "h-3 w-3 text-text-muted" })
+                      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "max-w-[130px] truncate", children: currentSoundLabel }),
+                      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(IconChevronDown, { className: "h-3 w-3 text-text-muted" })
                     ]
                   }
                 ),
-                soundMenuOpen ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "fixed inset-0 z-40", onClick: () => setSoundMenuOpen(false) }),
-                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "scroll-thin absolute right-0 top-full z-50 mt-1.5 max-h-72 min-w-[190px] overflow-y-auto rounded-md border border-border bg-panel py-1 shadow-lg", children: !soundBrand ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-                    Object.entries(groupedSounds).map(([group, items]) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+                soundMenuOpen ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "fixed inset-0 z-40", onClick: () => setSoundMenuOpen(false) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "scroll-thin absolute right-0 top-full z-50 mt-1.5 max-h-72 min-w-[190px] overflow-y-auto rounded-md border border-border bg-panel py-1 shadow-lg", children: !soundBrand ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
+                    Object.entries(groupedSounds).map(([group, items]) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
                       "button",
                       {
                         onClick: () => setSoundBrand(group),
                         className: `flex w-full items-center justify-between px-4 py-1.5 text-left text-[13px] hover:bg-card-hover ${items.some((s) => s.value === draft.notificationSound) ? "font-semibold text-primary" : "text-text-soft"}`,
                         children: [
-                          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: group }),
-                          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "text-[11px] tabular-nums text-text-muted", children: items.length })
+                          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { children: group }),
+                          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "text-[11px] tabular-nums text-text-muted", children: items.length })
                         ]
                       },
                       group
                     )),
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-1 border-t border-border pt-1", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: onUploadSound, className: "block w-full px-4 py-1.5 text-left text-[13px] text-primary hover:bg-card-hover", children: "\uFF0B \u4E0A\u4F20\u672C\u5730\u94C3\u58F0" }) })
-                  ] }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-1 border-b border-border px-2 py-1.5", children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mt-1 border-t border-border pt-1", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { onClick: onUploadSound, className: "block w-full px-4 py-1.5 text-left text-[13px] text-primary hover:bg-card-hover", children: "\uFF0B \u4E0A\u4F20\u672C\u5730\u94C3\u58F0" }) })
+                  ] }) : /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex items-center gap-1 border-b border-border px-2 py-1.5", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                         "button",
                         {
                           onClick: () => setSoundBrand(null),
@@ -25038,16 +25127,16 @@ function SettingsModal({
                           children: "\u2190"
                         }
                       ),
-                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "text-[12px] font-semibold text-text", children: soundBrand })
+                      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "text-[12px] font-semibold text-text", children: soundBrand })
                     ] }),
-                    (groupedSounds[soundBrand] || []).map((s) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+                    (groupedSounds[soundBrand] || []).map((s) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
                       "button",
                       {
                         onClick: () => onPickSound(s.value),
                         className: `group flex w-full items-center gap-2 px-4 py-1 text-left text-[12px] hover:bg-card-hover ${s.value === draft.notificationSound ? "font-semibold text-primary" : "text-text-soft"}`,
                         children: [
-                          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "min-w-0 flex-1 truncate", children: s.name }),
-                          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "min-w-0 flex-1 truncate", children: s.name }),
+                          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                             "span",
                             {
                               role: "button",
@@ -25067,10 +25156,10 @@ function SettingsModal({
                   ] }) })
                 ] }) : null
               ] }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u542F\u7528\u4E3B\u52A8\u91CD\u8FDE", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.enableReconnect, onChange: (v) => patch({ enableReconnect: v }) }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u901A\u77E5\u81EA\u52A8\u6D88\u5931", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.notificationAutoHide, onChange: onAutoHideChange }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(SettingRow, { label: "\u901A\u77E5\u6301\u7EED\u65F6\u95F4", hint: "\u4EC5\u5728\u81EA\u52A8\u6D88\u5931\u542F\u7528\u65F6\u751F\u6548", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u542F\u7528\u4E3B\u52A8\u91CD\u8FDE", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Switch, { checked: draft.enableReconnect, onChange: (v) => patch({ enableReconnect: v }) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u901A\u77E5\u81EA\u52A8\u6D88\u5931", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Switch, { checked: draft.notificationAutoHide, onChange: onAutoHideChange }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(SettingRow, { label: "\u901A\u77E5\u6301\u7EED\u65F6\u95F4", hint: "\u4EC5\u5728\u81EA\u52A8\u6D88\u5931\u542F\u7528\u65F6\u751F\u6548", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                   "input",
                   {
                     type: "range",
@@ -25083,14 +25172,14 @@ function SettingsModal({
                     className: "w-40 accent-primary disabled:opacity-40"
                   }
                 ),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "w-12 text-right text-[12px] tabular-nums text-text-soft", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "w-12 text-right text-[12px] tabular-nums text-text-soft", children: [
                   Math.max(1, Math.round(draft.notificationDuration / 1e3)),
                   " \u79D2"
                 ] })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u6C38\u4E0D\u81EA\u52A8\u5173\u95ED", hint: "\u4E0E\u300C\u81EA\u52A8\u6D88\u5931\u300D\u4E92\u65A5", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { danger: true, checked: draft.notificationNeverClose, onChange: onNeverCloseChange }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(SettingRow, { label: "\u901A\u77E5\u4E2D\u5FC3\u5B58\u6863\u65F6\u957F", hint: "\u6BCF\u6761\u6D88\u606F\u5728\u7CFB\u7EDF\u901A\u77E5\u4E2D\u5FC3\u7684\u4FDD\u7559\u65F6\u95F4", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u6C38\u4E0D\u81EA\u52A8\u5173\u95ED", hint: "\u4E0E\u300C\u81EA\u52A8\u6D88\u5931\u300D\u4E92\u65A5", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Switch, { danger: true, checked: draft.notificationNeverClose, onChange: onNeverCloseChange }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(SettingRow, { label: "\u901A\u77E5\u4E2D\u5FC3\u5B58\u6863\u65F6\u957F", hint: "\u6BCF\u6761\u6D88\u606F\u5728\u7CFB\u7EDF\u901A\u77E5\u4E2D\u5FC3\u7684\u4FDD\u7559\u65F6\u95F4", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                   "input",
                   {
                     type: "range",
@@ -25102,26 +25191,26 @@ function SettingsModal({
                     className: "w-40 accent-primary"
                   }
                 ),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "w-14 text-right text-[12px] tabular-nums text-text-soft", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "w-14 text-right text-[12px] tabular-nums text-text-soft", children: [
                   Math.max(5, draft.archiveExpiryMinutes),
                   " \u5206\u949F"
                 ] })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u9A8C\u8BC1\u7801\u81EA\u52A8\u590D\u5236", hint: "\u8BC6\u522B\u5230\u9A8C\u8BC1\u7801\u7684\u6D88\u606F\u5230\u8FBE\u65F6\u9759\u9ED8\u5199\u5165\u526A\u8D34\u677F", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.autoCopyVerificationCode, onChange: (v) => patch({ autoCopyVerificationCode: v }) }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u9A8C\u8BC1\u7801\u6309\u77ED\u4FE1\u6709\u6548\u671F\u5B58\u6863", hint: "\u6309\u77ED\u4FE1\u4E2D\u7684\u300CN\u5206\u949F\u300D\u5B58\u6863\uFF0C\u8BC6\u522B\u4E0D\u5230\u65F6\u56DE\u843D\u5230\u4E0A\u65B9\u65F6\u957F", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.codeSmartExpiry, onChange: (v) => patch({ codeSmartExpiry: v }) }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "border-t border-border-light pt-2", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[13px] text-text", children: "\u5C4F\u853D\u5F39\u7A97\u5206\u7EC4" }),
-                applications.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[12px] text-text-muted", children: "\u6682\u65E0\u5E94\u7528\u5206\u7EC4\uFF0C\u8BF7\u5148\u8FDE\u63A5\u670D\u52A1\u5668" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex flex-wrap gap-1.5", children: applications.map((app) => {
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u9A8C\u8BC1\u7801\u81EA\u52A8\u590D\u5236", hint: "\u8BC6\u522B\u5230\u9A8C\u8BC1\u7801\u7684\u6D88\u606F\u5230\u8FBE\u65F6\u9759\u9ED8\u5199\u5165\u526A\u8D34\u677F", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Switch, { checked: draft.autoCopyVerificationCode, onChange: (v) => patch({ autoCopyVerificationCode: v }) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u9A8C\u8BC1\u7801\u6309\u77ED\u4FE1\u6709\u6548\u671F\u5B58\u6863", hint: "\u6309\u77ED\u4FE1\u4E2D\u7684\u300CN\u5206\u949F\u300D\u5B58\u6863\uFF0C\u8BC6\u522B\u4E0D\u5230\u65F6\u56DE\u843D\u5230\u4E0A\u65B9\u65F6\u957F", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Switch, { checked: draft.codeSmartExpiry, onChange: (v) => patch({ codeSmartExpiry: v }) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "border-t border-border-light pt-2", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mb-1.5 text-[13px] text-text", children: "\u5C4F\u853D\u5F39\u7A97\u5206\u7EC4" }),
+                applications.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "text-[12px] text-text-muted", children: "\u6682\u65E0\u5E94\u7528\u5206\u7EC4\uFF0C\u8BF7\u5148\u8FDE\u63A5\u670D\u52A1\u5668" }) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "flex flex-wrap gap-1.5", children: applications.map((app) => {
                   var _a2;
-                  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Chip, { label: app.name, active: (_a2 = draft.mutedNotificationApps) == null ? void 0 : _a2.includes(app.id), onClick: () => toggleIdIn("mutedNotificationApps", app.id) }, app.id);
+                  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Chip, { label: app.name, active: (_a2 = draft.mutedNotificationApps) == null ? void 0 : _a2.includes(app.id), onClick: () => toggleIdIn("mutedNotificationApps", app.id) }, app.id);
                 }) }),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-1 text-[11px] text-text-muted", children: "\u9009\u4E2D\u7684\u5206\u7EC4\u5C06\u4E0D\u518D\u663E\u793A\u5F39\u7A97\u63D0\u9192" })
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mt-1 text-[11px] text-text-muted", children: "\u9009\u4E2D\u7684\u5206\u7EC4\u5C06\u4E0D\u518D\u663E\u793A\u5F39\u7A97\u63D0\u9192" })
               ] })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "Bark \u6D88\u606F\u8F6C\u53D1" }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "space-y-2", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "Bark \u6D88\u606F\u8F6C\u53D1" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "space-y-2", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                   "input",
                   {
                     value: draft.barkServerUrl || "",
@@ -25130,24 +25219,24 @@ function SettingsModal({
                     className: "h-8 w-full rounded border border-border bg-input text-text px-2 text-[13px] outline-none focus:border-primary"
                   }
                 ),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[13px] text-text", children: "\u8981\u8F6C\u53D1\u7684\u5E94\u7528\u5206\u7EC4" }),
-                  applications.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[12px] text-text-muted", children: "\u6682\u65E0\u5E94\u7528\u5206\u7EC4\uFF0C\u8BF7\u5148\u8FDE\u63A5\u670D\u52A1\u5668" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex flex-wrap gap-1.5", children: applications.map((app) => {
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mb-1.5 text-[13px] text-text", children: "\u8981\u8F6C\u53D1\u7684\u5E94\u7528\u5206\u7EC4" }),
+                  applications.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "text-[12px] text-text-muted", children: "\u6682\u65E0\u5E94\u7528\u5206\u7EC4\uFF0C\u8BF7\u5148\u8FDE\u63A5\u670D\u52A1\u5668" }) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "flex flex-wrap gap-1.5", children: applications.map((app) => {
                     var _a2;
-                    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Chip, { label: app.name, active: (_a2 = draft.barkForwardApps) == null ? void 0 : _a2.includes(app.id), onClick: () => toggleIdIn("barkForwardApps", app.id) }, app.id);
+                    return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Chip, { label: app.name, active: (_a2 = draft.barkForwardApps) == null ? void 0 : _a2.includes(app.id), onClick: () => toggleIdIn("barkForwardApps", app.id) }, app.id);
                   }) })
                 ] })
               ] })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u8DE8\u8BBE\u5907\u526A\u8D34\u677F\u540C\u6B65" }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u542F\u7528\u526A\u8D34\u677F\u540C\u6B65", hint: "\u590D\u5236\u5373\u540C\u6B65\u5230\u5176\u4ED6\u8BBE\u5907\uFF08\u6700\u65B0\u8986\u76D6\uFF09\uFF1B\u6258\u76D8\u53EF\u6682\u505C/\u53D6\u6700\u65B0\uFF0C\u4EC5\u540C\u8D26\u53F7\u591A\u8BBE\u5907", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: Boolean((_c = draft.clipboardSync) == null ? void 0 : _c.enabled), onChange: (v) => patchClipboard({ enabled: v }) }) }),
-              (clipCap == null ? void 0 : clipCap.supported) === false ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 rounded border border-danger-border bg-danger-bg px-2 py-1.5 text-[11px] text-danger-text", children: "\u670D\u52A1\u5668\u4E0D\u652F\u6301\u526A\u8D34\u677F\u540C\u6B65\uFF0C\u9700\u8981\u5347\u7EA7\u670D\u52A1\u5668\uFF08\u8FDE\u63A5\u8FD4\u56DE 404\uFF09" }) : null,
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "border-t border-border-light pt-2", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[13px] text-text", children: "\u540C\u6B65\u5185\u5BB9" }),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex flex-wrap gap-1.5", children: [["text", "\u6587\u672C"], ["image", "\u56FE\u7247"], ["file", "\u6587\u4EF6"]].map(([key, label]) => {
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u8DE8\u8BBE\u5907\u526A\u8D34\u677F\u540C\u6B65" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u542F\u7528\u526A\u8D34\u677F\u540C\u6B65", hint: "\u590D\u5236\u5373\u540C\u6B65\u5230\u5176\u4ED6\u8BBE\u5907\uFF08\u6700\u65B0\u8986\u76D6\uFF09\uFF1B\u6258\u76D8\u53EF\u6682\u505C/\u53D6\u6700\u65B0\uFF0C\u4EC5\u540C\u8D26\u53F7\u591A\u8BBE\u5907", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Switch, { checked: Boolean((_c = draft.clipboardSync) == null ? void 0 : _c.enabled), onChange: (v) => patchClipboard({ enabled: v }) }) }),
+              (clipCap == null ? void 0 : clipCap.supported) === false ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mb-1.5 rounded border border-danger-border bg-danger-bg px-2 py-1.5 text-[11px] text-danger-text", children: "\u670D\u52A1\u5668\u4E0D\u652F\u6301\u526A\u8D34\u677F\u540C\u6B65\uFF0C\u9700\u8981\u5347\u7EA7\u670D\u52A1\u5668\uFF08\u8FDE\u63A5\u8FD4\u56DE 404\uFF09" }) : null,
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "border-t border-border-light pt-2", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mb-1.5 text-[13px] text-text", children: "\u540C\u6B65\u5185\u5BB9" }),
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "flex flex-wrap gap-1.5", children: [["text", "\u6587\u672C"], ["image", "\u56FE\u7247"], ["file", "\u6587\u4EF6"]].map(([key, label]) => {
                   var _a2, _b2;
-                  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                     Chip,
                     {
                       label,
@@ -25160,10 +25249,10 @@ function SettingsModal({
                     key
                   );
                 }) }),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-1 text-[11px] text-text-muted", children: "\u6587\u672C\u6863\u5F53\u524D\u7248\u672C\u751F\u6548\uFF1B\u56FE\u7247\u4E0E\u6587\u4EF6\u540C\u6B65\u968F\u540E\u7EED\u7248\u672C\u5F00\u653E" })
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mt-1 text-[11px] text-text-muted", children: "\u4E09\u6863\u72EC\u7ACB\uFF1A\u5173\u95ED\u7684\u7C7B\u578B\u4E0D\u4E0A\u4F20\u4E5F\u4E0D\u843D\u5730\uFF1B\u63A2\u6D4B\u4F18\u5148\u7EA7 \u6587\u4EF6 > \u56FE\u7247 > \u6587\u672C" })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u5355\u4E2A\u56FE\u7247\u6587\u4EF6\u5347\u683C\u4E3A\u56FE\u7247", hint: "\u5173\u95ED\u5219\u6309\u666E\u901A\u6587\u4EF6\u5904\u7406\uFF08\u968F\u56FE\u7247/\u6587\u4EF6\u540C\u6B65\u5F00\u653E\u751F\u6548\uFF09", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: Boolean((_d = draft.clipboardSync) == null ? void 0 : _d.imagePromotion), onChange: (v) => patchClipboard({ imagePromotion: v }) }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u5355\u9879\u4E0A\u9650\uFF08MB\uFF09", hint: "\u8D85\u8FC7\u4EFB\u4E00\u4E0A\u9650\u6574\u7EC4\u8DF3\u8FC7\uFF0C\u6258\u76D8\u6C14\u6CE1\u63D0\u793A\u4E00\u6B21", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u5355\u4E2A\u56FE\u7247\u6587\u4EF6\u5347\u683C\u4E3A\u56FE\u7247", hint: "\u590D\u5236\u5355\u5F20\u56FE\u7247\u6587\u4EF6\u6309\u56FE\u7247\u6863\u540C\u6B65\uFF08\u7C98\u8D34\u4E3A\u56FE\u50CF\uFF09\uFF1B\u5173\u95ED\u5219\u6309\u666E\u901A\u6587\u4EF6\u5904\u7406", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Switch, { checked: Boolean((_d = draft.clipboardSync) == null ? void 0 : _d.imagePromotion), onChange: (v) => patchClipboard({ imagePromotion: v }) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u5355\u9879\u4E0A\u9650\uFF08MB\uFF09", hint: "\u8D85\u8FC7\u4EFB\u4E00\u4E0A\u9650\u6574\u7EC4\u8DF3\u8FC7\uFF0C\u6258\u76D8\u6C14\u6CE1\u63D0\u793A\u4E00\u6B21", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                 "input",
                 {
                   type: "number",
@@ -25173,7 +25262,7 @@ function SettingsModal({
                   className: "h-7 w-20 rounded border border-border bg-input px-2 text-right text-[12px] tabular-nums text-text-soft outline-none focus:border-primary"
                 }
               ) }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u5355\u7EC4\u603B\u4E0A\u9650\uFF08MB\uFF09", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u5355\u7EC4\u603B\u4E0A\u9650\uFF08MB\uFF09", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                 "input",
                 {
                   type: "number",
@@ -25183,7 +25272,7 @@ function SettingsModal({
                   className: "h-7 w-20 rounded border border-border bg-input px-2 text-right text-[12px] tabular-nums text-text-soft outline-none focus:border-primary"
                 }
               ) }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u5355\u7EC4\u6570\u91CF\u4E0A\u9650\uFF08\u4E2A\uFF09", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u5355\u7EC4\u6570\u91CF\u4E0A\u9650\uFF08\u4E2A\uFF09", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                 "input",
                 {
                   type: "number",
@@ -25193,7 +25282,7 @@ function SettingsModal({
                   className: "h-7 w-20 rounded border border-border bg-input px-2 text-right text-[12px] tabular-nums text-text-soft outline-none focus:border-primary"
                 }
               ) }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u6587\u672C\u4E0A\u9650\uFF08MB\uFF09", hint: "\u670D\u52A1\u5668\u901A\u9053\u786C\u9876 1MB\uFF1A\u8C03\u5927\u4EC5\u5728\u6B64\u8303\u56F4\u5185\u751F\u6548", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u6587\u672C\u4E0A\u9650\uFF08MB\uFF09", hint: "\u670D\u52A1\u5668\u901A\u9053\u786C\u9876 1MB\uFF1A\u8C03\u5927\u4EC5\u5728\u6B64\u8303\u56F4\u5185\u751F\u6548", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                 "input",
                 {
                   type: "number",
@@ -25203,7 +25292,7 @@ function SettingsModal({
                   className: "h-7 w-20 rounded border border-border bg-input px-2 text-right text-[12px] tabular-nums text-text-soft outline-none focus:border-primary"
                 }
               ) }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u63A5\u6536\u76EE\u5F55", hint: "\u7559\u7A7A=\u300C\u4E0B\u8F7D\\HotifyClipboard\u300D\uFF08\u968F\u6587\u4EF6\u540C\u6B65\u5F00\u653E\u751F\u6548\uFF09", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u63A5\u6536\u76EE\u5F55", hint: "\u8FDC\u7AEF\u6587\u4EF6\u7EC4\u843D\u76D8\u4F4D\u7F6E\uFF08\u540C\u540D\u51B2\u7A81\u81EA\u52A8\u52A0 (1)\uFF09\uFF1B\u6258\u76D8\u300C\u6253\u5F00\u63A5\u6536\u6587\u4EF6\u5939\u300D\u76F4\u8FBE", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                 "input",
                 {
                   value: ((_m = draft.clipboardSync) == null ? void 0 : _m.receiveDir) || "",
@@ -25211,11 +25300,12 @@ function SettingsModal({
                   placeholder: "Downloads\\HotifyClipboard",
                   className: "h-7 w-40 rounded border border-border bg-input px-2 text-[12px] text-text-soft outline-none focus:border-primary"
                 }
-              ) })
+              ) }),
+              Boolean((_n = draft.clipboardSync) == null ? void 0 : _n.enabled) ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(ClipHistoryPanel, { formatTime: formatDate }) : null
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u5916\u89C2" }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u4E3B\u9898", hint: "\u8DDF\u968F\u7CFB\u7EDF\u6216\u624B\u52A8\u6307\u5B9A\uFF0C\u7A97\u53E3\u6750\u8D28\u540C\u6B65\u6DF1\u6D45", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex rounded border border-border bg-input p-0.5", children: [["system", "\u8DDF\u968F\u7CFB\u7EDF"], ["light", "\u6D45\u8272"], ["dark", "\u6DF1\u8272"]].map(([value, label]) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u5916\u89C2" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u4E3B\u9898", hint: "\u8DDF\u968F\u7CFB\u7EDF\u6216\u624B\u52A8\u6307\u5B9A\uFF0C\u7A97\u53E3\u6750\u8D28\u540C\u6B65\u6DF1\u6D45", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "flex rounded border border-border bg-input p-0.5", children: [["system", "\u8DDF\u968F\u7CFB\u7EDF"], ["light", "\u6D45\u8272"], ["dark", "\u6DF1\u8272"]].map(([value, label]) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                 "button",
                 {
                   type: "button",
@@ -25225,10 +25315,10 @@ function SettingsModal({
                 },
                 value
               )) }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "mt-2 border-t border-border-light pt-2", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "mb-1.5 flex items-center justify-between", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[13px] text-text", children: "\u4E3B\u9898\u5DE5\u574A" }),
-                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "mt-2 border-t border-border-light pt-2", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "mb-1.5 flex items-center justify-between", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "text-[13px] text-text", children: "\u4E3B\u9898\u5DE5\u574A" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                     "button",
                     {
                       onClick: resetThemeDefaults,
@@ -25237,7 +25327,7 @@ function SettingsModal({
                     }
                   )
                 ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 flex gap-1", children: [["light", "\u6D45\u8272"], ["dark", "\u6DF1\u8272"]].map(([value, label]) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mb-1.5 flex gap-1", children: [["light", "\u6D45\u8272"], ["dark", "\u6DF1\u8272"]].map(([value, label]) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                   "button",
                   {
                     type: "button",
@@ -25247,28 +25337,28 @@ function SettingsModal({
                   },
                   value
                 )) }),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u5B9E\u65F6\u78E8\u7802\u684C\u9762", hint: "\u5F00=Acrylic\uFF08\u900F\u51FA\u5B9E\u65F6\u6A21\u7CCA\u7684\u684C\u9762\u5185\u5BB9\uFF09\uFF1B\u5173=Mica\uFF08\u58C1\u7EB8\u9759\u6001\u91C7\u6837\uFF0C\u7701\u7535\uFF09", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: (draft.windowMaterial || "mica") === "acrylic", onChange: (v) => onMaterialChange(v ? "acrylic" : "mica") }) }),
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u5B9E\u65F6\u78E8\u7802\u684C\u9762", hint: "\u5F00=Acrylic\uFF08\u900F\u51FA\u5B9E\u65F6\u6A21\u7CCA\u7684\u684C\u9762\u5185\u5BB9\uFF09\uFF1B\u5173=Mica\uFF08\u58C1\u7EB8\u9759\u6001\u91C7\u6837\uFF0C\u7701\u7535\uFF09", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Switch, { checked: (draft.windowMaterial || "mica") === "acrylic", onChange: (v) => onMaterialChange(v ? "acrylic" : "mica") }) }),
                 [["bg", "\u7A97\u53E3\u80CC\u666F"], ["list", "\u6D88\u606F\u5217\u8868"], ["input", "\u8F93\u5165\u5E95\u8272"]].map(([key, label]) => {
                   var _a2, _b2;
                   const block = ((_b2 = (_a2 = draft.themeCustom) == null ? void 0 : _a2[themeTab]) == null ? void 0 : _b2[key]) || DEFAULT_CONFIG.themeCustom[themeTab][key];
-                  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-2 py-1", children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "w-16 shrink-0 text-[12px] text-text-soft", children: label }),
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(ColorField, { value: block.tint, onChange: (hex) => setBlock(key, "tint", hex), presets: PRESET_TINTS[themeTab] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(AlphaSlider, { alpha: block.alpha, onChange: (next) => setBlock(key, "alpha", next) })
+                  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex items-center gap-2 py-1", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "w-16 shrink-0 text-[12px] text-text-soft", children: label }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(ColorField, { value: block.tint, onChange: (hex) => setBlock(key, "tint", hex), presets: PRESET_TINTS[themeTab] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(AlphaSlider, { alpha: block.alpha, onChange: (next) => setBlock(key, "alpha", next) })
                   ] }, key);
                 }),
                 (() => {
                   var _a2;
                   const cardFace = ((_a2 = draft.cardGlass) == null ? void 0 : _a2[themeTab]) || DEFAULT_CONFIG.cardGlass[themeTab];
-                  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex flex-wrap items-center gap-2 border-t border-border-light py-1.5 pt-2", children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "w-16 shrink-0 text-[12px] text-text-soft", children: "\u901A\u77E5\u5F39\u5361" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(ColorField, { value: cardFace.tint, onChange: (hex) => setCardGlass("tint", hex), presets: PRESET_TINTS[themeTab] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(AlphaSlider, { alpha: cardFace.alpha, min: 0, max: 95, onChange: (next) => setCardGlass("alpha", next) }),
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "flex items-center gap-1.5 text-[11px] text-text-muted", children: [
+                  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex flex-wrap items-center gap-2 border-t border-border-light py-1.5 pt-2", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "w-16 shrink-0 text-[12px] text-text-soft", children: "\u901A\u77E5\u5F39\u5361" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(ColorField, { value: cardFace.tint, onChange: (hex) => setCardGlass("tint", hex), presets: PRESET_TINTS[themeTab] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(AlphaSlider, { alpha: cardFace.alpha, min: 0, max: 95, onChange: (next) => setCardGlass("alpha", next) }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "flex items-center gap-1.5 text-[11px] text-text-muted", children: [
                       "\u78E8\u7802\u5E95",
-                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.cardAcrylic !== false, onChange: (v) => patch({ cardAcrylic: v }) })
+                      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Switch, { checked: draft.cardAcrylic !== false, onChange: (v) => patch({ cardAcrylic: v }) })
                     ] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                       "button",
                       {
                         onClick: () => window.gotifyAPI.notifyTest(cardFace, draft.cardAcrylic !== false),
@@ -25281,13 +25371,13 @@ function SettingsModal({
                 (() => {
                   var _a2;
                   const glass = ((_a2 = draft.glass) == null ? void 0 : _a2[themeTab]) || DEFAULT_CONFIG.glass[themeTab];
-                  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex flex-wrap items-center gap-2 border-t border-border-light py-1.5 pt-2", children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "w-16 shrink-0 text-[12px] text-text-soft", children: "\u8BBE\u7F6E\u5F39\u7A97" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(ColorField, { value: glass.tint, onChange: (hex) => setGlass("tint", hex), presets: PRESET_TINTS[themeTab] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(AlphaSlider, { alpha: glass.alpha, min: 5, max: 95, onChange: (next) => setGlass("alpha", next) }),
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "flex items-center gap-1.5 text-[11px] text-text-muted", children: [
+                  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex flex-wrap items-center gap-2 border-t border-border-light py-1.5 pt-2", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "w-16 shrink-0 text-[12px] text-text-soft", children: "\u8BBE\u7F6E\u5F39\u7A97" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(ColorField, { value: glass.tint, onChange: (hex) => setGlass("tint", hex), presets: PRESET_TINTS[themeTab] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(AlphaSlider, { alpha: glass.alpha, min: 5, max: 95, onChange: (next) => setGlass("alpha", next) }),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "flex items-center gap-1.5 text-[11px] text-text-muted", children: [
                       "\u6A21\u7CCA",
-                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                         "input",
                         {
                           type: "range",
@@ -25298,7 +25388,7 @@ function SettingsModal({
                           className: "w-20 accent-primary"
                         }
                       ),
-                      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "w-9 tabular-nums", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "w-9 tabular-nums", children: [
                         glass.blur,
                         "px"
                       ] })
@@ -25307,11 +25397,11 @@ function SettingsModal({
                 })()
               ] })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u6570\u636E\u5B58\u50A8" }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-2 py-1", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex-1 rounded border border-border bg-input px-2 py-1.5 text-[12px] text-text-soft break-all", children: storagePath || "-" }),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u6570\u636E\u5B58\u50A8" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex items-center gap-2 py-1", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "flex-1 rounded border border-border bg-input px-2 py-1.5 text-[12px] text-text-soft break-all", children: storagePath || "-" }),
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                   "button",
                   {
                     onClick: onOpenStoragePath,
@@ -25321,25 +25411,25 @@ function SettingsModal({
                   }
                 )
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-1 text-[11px] text-text-muted", children: "\u5982\u9700\u8FC1\u79FB\u6570\u636E\uFF0C\u8BF7\u624B\u52A8\u590D\u5236\u6587\u4EF6\u5230\u65B0\u76EE\u5F55" })
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mt-1 text-[11px] text-text-muted", children: "\u5982\u9700\u8FC1\u79FB\u6570\u636E\uFF0C\u8BF7\u624B\u52A8\u590D\u5236\u6587\u4EF6\u5230\u65B0\u76EE\u5F55" })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u901A\u7528" }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u6700\u5C0F\u5316\u5230\u7CFB\u7EDF\u6258\u76D8", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.minimizeToTray, onChange: (v) => patch({ minimizeToTray: v }) }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u5F00\u673A\u81EA\u52A8\u542F\u52A8", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.autoLaunch, onChange: (v) => patch({ autoLaunch: v }) }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u542F\u52A8\u65F6\u663E\u793A\u4E3B\u754C\u9762", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: draft.showMainWindowOnStartup, onChange: (v) => patch({ showMainWindowOnStartup: v }) }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "mt-2 border-t border-border-light pt-2 text-[12px] text-text-muted", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u901A\u7528" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u6700\u5C0F\u5316\u5230\u7CFB\u7EDF\u6258\u76D8", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Switch, { checked: draft.minimizeToTray, onChange: (v) => patch({ minimizeToTray: v }) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u5F00\u673A\u81EA\u52A8\u542F\u52A8", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Switch, { checked: draft.autoLaunch, onChange: (v) => patch({ autoLaunch: v }) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u542F\u52A8\u65F6\u663E\u793A\u4E3B\u754C\u9762", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Switch, { checked: draft.showMainWindowOnStartup, onChange: (v) => patch({ showMainWindowOnStartup: v }) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "mt-2 border-t border-border-light pt-2 text-[12px] text-text-muted", children: [
                 "\u7248\u672C ",
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "font-mono text-text-soft", children: appVersion || "-" })
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "font-mono text-text-soft", children: appVersion || "-" })
               ] })
             ] })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "shrink-0 flex items-center justify-between gap-3 border-t border-border-light bg-card-hover-alt px-5 py-3", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `flex-1 min-w-0 break-words text-[13px] font-semibold leading-tight ${(notice == null ? void 0 : notice.type) === "error" ? "text-danger-text" : "text-success-text"}`, children: armedClose ? "\u6709\u672A\u4FDD\u5B58\u7684\u4FEE\u6539\uFF0C\u518D\u70B9\u4E00\u6B21\u5173\u95ED" : (notice == null ? void 0 : notice.text) || "" }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex shrink-0 items-center gap-2", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: requestClose, className: "h-9 whitespace-nowrap rounded border border-border bg-card px-4 text-[13px] text-text-soft hover:bg-card-hover", children: "\u53D6\u6D88" }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => onTest(draft), disabled: testing, className: "h-9 whitespace-nowrap rounded border border-border bg-card px-3 text-[13px] text-text-soft hover:bg-card-hover disabled:opacity-50", children: testing ? "\u6D4B\u8BD5\u4E2D..." : "\u6D4B\u8BD5\u8FDE\u63A5" }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => onSave(draft), disabled: saving, className: "h-9 whitespace-nowrap rounded bg-primary px-4 text-[13px] text-white hover:bg-primary-hover disabled:opacity-50", children: saving ? "\u4FDD\u5B58\u4E2D..." : "\u4FDD\u5B58" })
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "shrink-0 flex items-center justify-between gap-3 border-t border-border-light bg-card-hover-alt px-5 py-3", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: `flex-1 min-w-0 break-words text-[13px] font-semibold leading-tight ${(notice == null ? void 0 : notice.type) === "error" ? "text-danger-text" : "text-success-text"}`, children: armedClose ? "\u6709\u672A\u4FDD\u5B58\u7684\u4FEE\u6539\uFF0C\u518D\u70B9\u4E00\u6B21\u5173\u95ED" : (notice == null ? void 0 : notice.text) || "" }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex shrink-0 items-center gap-2", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { onClick: requestClose, className: "h-9 whitespace-nowrap rounded border border-border bg-card px-4 text-[13px] text-text-soft hover:bg-card-hover", children: "\u53D6\u6D88" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { onClick: () => onTest(draft), disabled: testing, className: "h-9 whitespace-nowrap rounded border border-border bg-card px-3 text-[13px] text-text-soft hover:bg-card-hover disabled:opacity-50", children: testing ? "\u6D4B\u8BD5\u4E2D..." : "\u6D4B\u8BD5\u8FDE\u63A5" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { onClick: () => onSave(draft), disabled: saving, className: "h-9 whitespace-nowrap rounded bg-primary px-4 text-[13px] text-white hover:bg-primary-hover disabled:opacity-50", children: saving ? "\u4FDD\u5B58\u4E2D..." : "\u4FDD\u5B58" })
             ] })
           ] })
         ]
@@ -25349,9 +25439,9 @@ function SettingsModal({
 }
 function AlphaSlider({ alpha, onChange, min = 0, max = 100 }) {
   const shown = Math.max(min, Math.min(max, 100 - Math.round(alpha * 100)));
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "flex shrink-0 items-center gap-1.5 text-[11px] text-text-muted", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: "\u900F\u660E" }),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("label", { className: "flex shrink-0 items-center gap-1.5 text-[11px] text-text-muted", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { children: "\u900F\u660E" }),
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
       "input",
       {
         type: "range",
@@ -25362,15 +25452,15 @@ function AlphaSlider({ alpha, onChange, min = 0, max = 100 }) {
         className: "w-20 accent-primary"
       }
     ),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "w-8 tabular-nums", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "w-8 tabular-nums", children: [
       shown,
       "%"
     ] })
   ] });
 }
 function MessageCard({ item, appLabel, onToggleFavorite, verificationCode }) {
-  const [expanded, setExpanded] = (0, import_react.useState)(false);
-  const [copied, setCopied] = (0, import_react.useState)(false);
+  const [expanded, setExpanded] = (0, import_react2.useState)(false);
+  const [copied, setCopied] = (0, import_react2.useState)(false);
   const priority = Number(item.priority || 0);
   const priorityColor = priority >= 8 ? "bg-danger-text" : priority >= 4 ? "bg-primary" : "";
   const rawMessage = String(item.message || "");
@@ -25380,7 +25470,7 @@ function MessageCard({ item, appLabel, onToggleFavorite, verificationCode }) {
   const overLineLimit = lines.length > maxLines;
   const overCharLimit = rawMessage.length > maxChars;
   const canCollapse = overLineLimit || overCharLimit;
-  const collapsedText = (0, import_react.useMemo)(() => {
+  const collapsedText = (0, import_react2.useMemo)(() => {
     const merged = lines.slice(0, maxLines).join("\n");
     if (merged.length <= maxChars) {
       return overLineLimit ? `${merged}...` : merged;
@@ -25397,7 +25487,7 @@ function MessageCard({ item, appLabel, onToggleFavorite, verificationCode }) {
     } catch (e) {
     }
   };
-  const bodyParts = (0, import_react.useMemo)(() => {
+  const bodyParts = (0, import_react2.useMemo)(() => {
     if (!verificationCode || !visibleMessage.includes(verificationCode)) return [{ text: visibleMessage, code: false }];
     const parts = [];
     let rest = visibleMessage;
@@ -25410,28 +25500,28 @@ function MessageCard({ item, appLabel, onToggleFavorite, verificationCode }) {
     if (rest) parts.push({ text: rest, code: false });
     return parts;
   }, [visibleMessage, verificationCode]);
-  const messageUrls = (0, import_react.useMemo)(() => (0, import_message_urls.extractMessageUrls)(item), [item]);
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "group flex gap-3 px-4 py-2 hover:bg-layer-hover", children: [
-    priorityColor ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `w-1 shrink-0 rounded-full ${priorityColor}` }) : null,
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "min-w-0 flex-1", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-baseline gap-2", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "min-w-0 flex-1 truncate", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "text-[15px] font-semibold text-text", children: item.title || "\u65E0\u6807\u9898" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ml-2 text-[12px] text-text-muted", children: appLabel || `\u5E94\u7528 #${item.appid || 0}` })
+  const messageUrls = (0, import_react2.useMemo)(() => (0, import_message_urls.extractMessageUrls)(item), [item]);
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "group flex gap-3 px-4 py-2 hover:bg-layer-hover", children: [
+    priorityColor ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: `w-1 shrink-0 rounded-full ${priorityColor}` }) : null,
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "min-w-0 flex-1", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex items-baseline gap-2", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "min-w-0 flex-1 truncate", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "text-[15px] font-semibold text-text", children: item.title || "\u65E0\u6807\u9898" }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ml-2 text-[12px] text-text-muted", children: appLabel || `\u5E94\u7528 #${item.appid || 0}` })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
           "button",
           {
             onClick: () => item.id && onToggleFavorite(item.id),
             className: `self-center rounded p-0.5 text-text-muted hover:text-star focus:outline-none ${item.favorite ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`,
             title: item.favorite ? "\u53D6\u6D88\u6536\u85CF" : "\u6536\u85CF",
-            children: item.favorite ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IconStarFilled, { className: "h-4 w-4 text-star" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IconStarOutline, { className: "h-4 w-4" })
+            children: item.favorite ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(IconStarFilled, { className: "h-4 w-4 text-star" }) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(IconStarOutline, { className: "h-4 w-4" })
           }
         ),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "self-center whitespace-nowrap text-[12px] tabular-nums text-text-muted", children: timeText(item.date) })
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "self-center whitespace-nowrap text-[12px] tabular-nums text-text-muted", children: timeText(item.date) })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-0.5 text-[13px] text-text-soft whitespace-pre-wrap break-words", children: bodyParts.map(
-        (part, index) => part.code ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mt-0.5 text-[13px] text-text-soft whitespace-pre-wrap break-words", children: bodyParts.map(
+        (part, index) => part.code ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
           "button",
           {
             onClick: onCopyCode,
@@ -25440,65 +25530,65 @@ function MessageCard({ item, appLabel, onToggleFavorite, verificationCode }) {
             children: copied ? "\u5DF2\u590D\u5236 \u2713" : part.text
           },
           index
-        ) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: part.text }, index)
+        ) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { children: part.text }, index)
       ) }),
-      messageUrls.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-1 flex flex-wrap gap-1.5", children: messageUrls.map((url) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+      messageUrls.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mt-1 flex flex-wrap gap-1.5", children: messageUrls.map((url) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
         "button",
         {
           onClick: () => window.gotifyAPI.openExternal(url),
           title: url,
           className: "flex h-6 max-w-[260px] items-center gap-1 rounded border border-border bg-input px-2 text-[12px] text-text-soft hover:border-primary hover:text-primary",
           children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "shrink-0 text-[10px]", children: "\u{1F517}" }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "truncate", children: (0, import_message_urls.hostOf)(url) })
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "shrink-0 text-[10px]", children: "\u{1F517}" }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "truncate", children: (0, import_message_urls.hostOf)(url) })
           ]
         },
         url
       )) }) : null,
-      canCollapse ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => setExpanded((prev) => !prev), className: "mt-0.5 text-[12px] text-primary hover:text-primary-hover", children: expanded ? "\u6536\u8D77" : "\u5C55\u5F00" }) : null
+      canCollapse ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { onClick: () => setExpanded((prev) => !prev), className: "mt-0.5 text-[12px] text-primary hover:text-primary-hover", children: expanded ? "\u6536\u8D77" : "\u5C55\u5F00" }) : null
     ] })
   ] });
 }
 function App() {
   var _a;
-  const [config, setConfig] = (0, import_react.useState)({ ...DEFAULT_CONFIG });
-  const [appVersion, setAppVersion] = (0, import_react.useState)("-");
-  const [messages, setMessages] = (0, import_react.useState)([]);
-  const [status, setStatus] = (0, import_react.useState)({ connected: false, status: "\u672A\u8FDE\u63A5" });
-  const [settingsOpen, setSettingsOpen] = (0, import_react.useState)(false);
-  (0, import_react.useEffect)(() => {
+  const [config, setConfig] = (0, import_react2.useState)({ ...DEFAULT_CONFIG });
+  const [appVersion, setAppVersion] = (0, import_react2.useState)("-");
+  const [messages, setMessages] = (0, import_react2.useState)([]);
+  const [status, setStatus] = (0, import_react2.useState)({ connected: false, status: "\u672A\u8FDE\u63A5" });
+  const [settingsOpen, setSettingsOpen] = (0, import_react2.useState)(false);
+  (0, import_react2.useEffect)(() => {
     applyThemeVars(config);
   }, [config]);
-  (0, import_react.useEffect)(() => {
+  (0, import_react2.useEffect)(() => {
     if (!settingsOpen) {
       applyThemeVars(config);
     }
   }, [settingsOpen]);
-  const [loading, setLoading] = (0, import_react.useState)(true);
-  const [testing, setTesting] = (0, import_react.useState)(false);
-  const [saving, setSaving] = (0, import_react.useState)(false);
-  const [clearing, setClearing] = (0, import_react.useState)(false);
-  const [banner, setBanner] = (0, import_react.useState)("");
-  const [settingsNotice, setSettingsNotice] = (0, import_react.useState)({ text: "", type: "info" });
-  const [storagePath, setStoragePath] = (0, import_react.useState)("");
-  const [draftStoragePath, setDraftStoragePath] = (0, import_react.useState)("");
-  const [applyingStoragePath, setApplyingStoragePath] = (0, import_react.useState)(false);
-  const [storageLockedByEnv, setStorageLockedByEnv] = (0, import_react.useState)(false);
-  const [applications, setApplications] = (0, import_react.useState)([]);
-  const [selectedAppId, setSelectedAppId] = (0, import_react.useState)("all");
-  const [searchText, setSearchText] = (0, import_react.useState)("");
-  const [showFavorites, setShowFavorites] = (0, import_react.useState)(false);
-  const [overflowOpen, setOverflowOpen] = (0, import_react.useState)(false);
-  const [confirmClearArmed, setConfirmClearArmed] = (0, import_react.useState)(false);
-  const [codeMap, setCodeMap] = (0, import_react.useState)(/* @__PURE__ */ new Map());
-  const [groupMenuOpen, setGroupMenuOpen] = (0, import_react.useState)(false);
-  const [wide, setWide] = (0, import_react.useState)(() => typeof window !== "undefined" ? window.innerWidth >= 1e3 : false);
-  (0, import_react.useEffect)(() => {
+  const [loading, setLoading] = (0, import_react2.useState)(true);
+  const [testing, setTesting] = (0, import_react2.useState)(false);
+  const [saving, setSaving] = (0, import_react2.useState)(false);
+  const [clearing, setClearing] = (0, import_react2.useState)(false);
+  const [banner, setBanner] = (0, import_react2.useState)("");
+  const [settingsNotice, setSettingsNotice] = (0, import_react2.useState)({ text: "", type: "info" });
+  const [storagePath, setStoragePath] = (0, import_react2.useState)("");
+  const [draftStoragePath, setDraftStoragePath] = (0, import_react2.useState)("");
+  const [applyingStoragePath, setApplyingStoragePath] = (0, import_react2.useState)(false);
+  const [storageLockedByEnv, setStorageLockedByEnv] = (0, import_react2.useState)(false);
+  const [applications, setApplications] = (0, import_react2.useState)([]);
+  const [selectedAppId, setSelectedAppId] = (0, import_react2.useState)("all");
+  const [searchText, setSearchText] = (0, import_react2.useState)("");
+  const [showFavorites, setShowFavorites] = (0, import_react2.useState)(false);
+  const [overflowOpen, setOverflowOpen] = (0, import_react2.useState)(false);
+  const [confirmClearArmed, setConfirmClearArmed] = (0, import_react2.useState)(false);
+  const [codeMap, setCodeMap] = (0, import_react2.useState)(/* @__PURE__ */ new Map());
+  const [groupMenuOpen, setGroupMenuOpen] = (0, import_react2.useState)(false);
+  const [wide, setWide] = (0, import_react2.useState)(() => typeof window !== "undefined" ? window.innerWidth >= 1e3 : false);
+  (0, import_react2.useEffect)(() => {
     const onResize = () => setWide(window.innerWidth >= 1e3);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
-  (0, import_react.useEffect)(() => {
+  (0, import_react2.useEffect)(() => {
     const apply = (dark) => document.documentElement.classList.toggle("dark", Boolean(dark));
     let unsubTheme = null;
     window.gotifyAPI.getThemeState().then((state) => apply(Boolean(state == null ? void 0 : state.dark))).catch(() => {
@@ -25508,7 +25598,7 @@ function App() {
       if (typeof unsubTheme === "function") unsubTheme();
     };
   }, []);
-  (0, import_react.useEffect)(() => {
+  (0, import_react2.useEffect)(() => {
     let unsubStatus = null;
     let unsubMessage = null;
     let unsubOpenSettings = null;
@@ -25552,7 +25642,7 @@ function App() {
       if (typeof unsubMessagesCleared === "function") unsubMessagesCleared();
     };
   }, []);
-  (0, import_react.useEffect)(() => {
+  (0, import_react2.useEffect)(() => {
     if (loading) {
       return;
     }
@@ -25561,7 +25651,7 @@ function App() {
       boot.remove();
     }
   }, [loading]);
-  (0, import_react.useEffect)(() => {
+  (0, import_react2.useEffect)(() => {
     if (!banner) {
       return void 0;
     }
@@ -25665,8 +25755,8 @@ function App() {
       setBanner("\u64CD\u4F5C\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5");
     }
   };
-  const appIdSet = (0, import_react.useMemo)(() => new Set(messages.map((item) => Number(item.appid || 0)).filter((id) => id > 0)), [messages]);
-  const applicationOptions = (0, import_react.useMemo)(() => {
+  const appIdSet = (0, import_react2.useMemo)(() => new Set(messages.map((item) => Number(item.appid || 0)).filter((id) => id > 0)), [messages]);
+  const applicationOptions = (0, import_react2.useMemo)(() => {
     const knownIds = new Set(applications.map((item) => item.id));
     const dynamicOptions = Array.from(appIdSet).filter((id) => !knownIds.has(id)).map((id) => ({ id: String(id), name: `\u5E94\u7528 #${id}` }));
     return [{ id: "all", name: "\u5168\u90E8\u5206\u7EC4" }, ...applications.map((item) => ({ id: String(item.id), name: item.name })), ...dynamicOptions];
@@ -25677,7 +25767,7 @@ function App() {
     const matched = applications.find((item) => item.id === id);
     return (matched == null ? void 0 : matched.name) || `\u5E94\u7528 #${id}`;
   };
-  const visibleMessages = (0, import_react.useMemo)(() => {
+  const visibleMessages = (0, import_react2.useMemo)(() => {
     let result = messages;
     if (showFavorites) {
       result = result.filter((item) => item.favorite);
@@ -25693,7 +25783,7 @@ function App() {
     }
     return result;
   }, [messages, selectedAppId, searchText, showFavorites]);
-  const groupedMessages = (0, import_react.useMemo)(() => {
+  const groupedMessages = (0, import_react2.useMemo)(() => {
     const groups = [];
     for (const item of visibleMessages) {
       const label = dateGroupLabel(item.date);
@@ -25705,7 +25795,7 @@ function App() {
     }
     return groups;
   }, [visibleMessages]);
-  (0, import_react.useEffect)(() => {
+  (0, import_react2.useEffect)(() => {
     if (!messages.length) {
       return;
     }
@@ -25722,12 +25812,12 @@ function App() {
     });
   }, [messages]);
   if (loading) {
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex h-full items-center justify-center text-text-muted", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[20px]", children: "\u52A0\u8F7D\u4E2D..." }) });
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "flex h-full items-center justify-center text-text-muted", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "text-[20px]", children: "\u52A0\u8F7D\u4E2D..." }) });
   }
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex h-full flex-col bg-bg", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-2 px-4 py-2.5", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex rounded-md bg-black/[0.05] p-0.5 dark:bg-white/[0.06]", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex h-full flex-col bg-bg", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex items-center gap-2 px-4 py-2.5", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex rounded-md bg-black/[0.05] p-0.5 dark:bg-white/[0.06]", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
           "button",
           {
             onClick: () => setShowFavorites(false),
@@ -25735,7 +25825,7 @@ function App() {
             children: "\u5168\u90E8"
           }
         ),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
           "button",
           {
             onClick: () => setShowFavorites(true),
@@ -25744,9 +25834,9 @@ function App() {
           }
         )
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "relative w-44", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IconSearch, { className: "absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "relative w-44", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(IconSearch, { className: "absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
           "input",
           {
             value: searchText,
@@ -25755,23 +25845,23 @@ function App() {
             className: "h-8 w-full rounded-md border border-border bg-input pl-7 pr-6 text-[12px] text-text-soft outline-none focus:border-primary"
           }
         ),
-        searchText ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => setSearchText(""), className: "absolute right-1 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-soft", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IconClearText, { className: "h-3.5 w-3.5" }) }) : null
+        searchText ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { onClick: () => setSearchText(""), className: "absolute right-1 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-soft", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(IconClearText, { className: "h-3.5 w-3.5" }) }) : null
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "relative", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "relative", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
           "button",
           {
             onClick: () => setGroupMenuOpen((prev) => !prev),
             className: "flex h-8 items-center gap-1 rounded-md border border-border bg-input px-2.5 text-[12px] text-text-soft hover:border-primary focus:outline-none",
             children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "max-w-[120px] truncate", children: ((_a = applicationOptions.find((o) => String(o.id) === selectedAppId)) == null ? void 0 : _a.name) || "\u5168\u90E8\u5206\u7EC4" }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IconChevronDown, { className: "h-3 w-3 text-text-muted" })
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "max-w-[120px] truncate", children: ((_a = applicationOptions.find((o) => String(o.id) === selectedAppId)) == null ? void 0 : _a.name) || "\u5168\u90E8\u5206\u7EC4" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(IconChevronDown, { className: "h-3 w-3 text-text-muted" })
             ]
           }
         ),
-        groupMenuOpen ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "fixed inset-0 z-40", onClick: () => setGroupMenuOpen(false) }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "scroll-thin absolute left-0 top-full z-50 mt-1.5 max-h-64 min-w-[150px] overflow-y-auto rounded-md border border-border bg-panel py-1 shadow-lg", children: applicationOptions.map((item) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+        groupMenuOpen ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "fixed inset-0 z-40", onClick: () => setGroupMenuOpen(false) }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "scroll-thin absolute left-0 top-full z-50 mt-1.5 max-h-64 min-w-[150px] overflow-y-auto rounded-md border border-border bg-panel py-1 shadow-lg", children: applicationOptions.map((item) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
             "button",
             {
               onClick: () => {
@@ -25785,18 +25875,18 @@ function App() {
           )) })
         ] }) : null
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex-1" }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "flex-1" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
         "button",
         {
           onClick: () => setSettingsOpen(true),
           title: "\u8BBE\u7F6E",
           className: "flex h-8 w-8 items-center justify-center rounded text-text-muted hover:bg-black/[0.05] hover:text-text-soft focus:outline-none dark:hover:bg-white/[0.06]",
-          children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IconGear, { className: "h-4 w-4" })
+          children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(IconGear, { className: "h-4 w-4" })
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "relative", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "relative", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
           "button",
           {
             onClick: () => {
@@ -25805,11 +25895,11 @@ function App() {
             },
             title: "\u66F4\u591A",
             className: "flex h-8 w-8 items-center justify-center rounded text-text-muted hover:bg-black/[0.05] hover:text-text-soft focus:outline-none dark:hover:bg-white/[0.06]",
-            children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IconMore, { className: "h-4 w-4" })
+            children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(IconMore, { className: "h-4 w-4" })
           }
         ),
-        overflowOpen ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+        overflowOpen ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
             "div",
             {
               className: "fixed inset-0 z-40",
@@ -25819,8 +25909,8 @@ function App() {
               }
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "absolute right-0 top-full z-50 mt-1.5 min-w-[170px] rounded-md border border-border bg-panel py-1 shadow-lg", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "absolute right-0 top-full z-50 mt-1.5 min-w-[170px] rounded-md border border-border bg-panel py-1 shadow-lg", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
               "button",
               {
                 onClick: () => {
@@ -25831,8 +25921,8 @@ function App() {
                 children: status.connected ? "\u65AD\u5F00\u8FDE\u63A5" : "\u8FDE\u63A5\u670D\u52A1\u5668"
               }
             ),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "my-1 border-t border-border-light" }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "my-1 border-t border-border-light" }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
               "button",
               {
                 onClick: () => {
@@ -25853,14 +25943,14 @@ function App() {
         ] }) : null
       ] })
     ] }),
-    banner ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "bg-banner-bg px-4 py-1.5 text-[12px] text-banner-text", children: banner }) : null,
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex min-h-0 flex-1 flex-col px-3 pb-1", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "scroll-thin min-h-0 flex-1 overflow-y-auto rounded-lg bg-layer", children: visibleMessages.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex h-full flex-col items-center justify-center gap-2 py-16 text-text-muted", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IconInbox, { className: "h-10 w-10 text-text-disabled" }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[14px]", children: showFavorites ? "\u6682\u65E0\u6536\u85CF\u6D88\u606F" : searchText ? `\u6CA1\u6709\u5339\u914D\u300C${searchText}\u300D\u7684\u6D88\u606F` : "\u6682\u65E0\u6D88\u606F" }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[12px] text-text-disabled", children: showFavorites ? "\u70B9\u51FB\u6D88\u606F\u53F3\u4FA7\u661F\u6807\u5373\u53EF\u6536\u85CF" : searchText ? "\u8BD5\u8BD5\u6E05\u7A7A\u641C\u7D22\u8BCD\u6216\u5207\u6362\u5206\u7EC4" : "\u8FDE\u63A5\u670D\u52A1\u5668\u540E\uFF0C\u63A8\u9001\u7684\u6D88\u606F\u4F1A\u663E\u793A\u5728\u8FD9\u91CC" })
-    ] }) : groupedMessages.map((group) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "sticky top-0 z-10 bg-layer px-4 py-1 text-[11px] text-text-muted backdrop-blur-sm", children: group.label }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: wide ? "grid grid-cols-2 gap-x-2" : "", children: group.items.map((item) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+    banner ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "bg-banner-bg px-4 py-1.5 text-[12px] text-banner-text", children: banner }) : null,
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "flex min-h-0 flex-1 flex-col px-3 pb-1", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "scroll-thin min-h-0 flex-1 overflow-y-auto rounded-lg bg-layer", children: visibleMessages.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex h-full flex-col items-center justify-center gap-2 py-16 text-text-muted", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(IconInbox, { className: "h-10 w-10 text-text-disabled" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "text-[14px]", children: showFavorites ? "\u6682\u65E0\u6536\u85CF\u6D88\u606F" : searchText ? `\u6CA1\u6709\u5339\u914D\u300C${searchText}\u300D\u7684\u6D88\u606F` : "\u6682\u65E0\u6D88\u606F" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "text-[12px] text-text-disabled", children: showFavorites ? "\u70B9\u51FB\u6D88\u606F\u53F3\u4FA7\u661F\u6807\u5373\u53EF\u6536\u85CF" : searchText ? "\u8BD5\u8BD5\u6E05\u7A7A\u641C\u7D22\u8BCD\u6216\u5207\u6362\u5206\u7EC4" : "\u8FDE\u63A5\u670D\u52A1\u5668\u540E\uFF0C\u63A8\u9001\u7684\u6D88\u606F\u4F1A\u663E\u793A\u5728\u8FD9\u91CC" })
+    ] }) : groupedMessages.map((group) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "sticky top-0 z-10 bg-layer px-4 py-1 text-[11px] text-text-muted backdrop-blur-sm", children: group.label }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: wide ? "grid grid-cols-2 gap-x-2" : "", children: group.items.map((item) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
         MessageCard,
         {
           item,
@@ -25871,11 +25961,11 @@ function App() {
         `${item.id}-${item.date}`
       )) })
     ] }, group.label)) }) }),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-2 px-4 pb-2.5 pt-1", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `h-2 w-2 rounded-full ${dotColor}` }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[12px] text-text-muted", children: status.status || "\u672A\u8FDE\u63A5" })
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex items-center gap-2 px-4 pb-2.5 pt-1", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: `h-2 w-2 rounded-full ${dotColor}` }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "text-[12px] text-text-muted", children: status.status || "\u672A\u8FDE\u63A5" })
     ] }),
-    settingsOpen ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+    settingsOpen ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
       SettingsModal,
       {
         onClose: () => setSettingsOpen(false),
@@ -25900,7 +25990,7 @@ function App() {
 }
 var rootElement = document.getElementById("root");
 if (rootElement) {
-  (0, import_client.createRoot)(rootElement).render(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(App, {}));
+  (0, import_client.createRoot)(rootElement).render(/* @__PURE__ */ (0, import_jsx_runtime3.jsx)(App, {}));
 }
 /*! Bundled license information:
 

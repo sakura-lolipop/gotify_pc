@@ -3,6 +3,8 @@ import type { ChangeEvent, Dispatch, SetStateAction } from "react";
 import { createRoot } from "react-dom/client";
 import { IconGear, IconMore, IconStarOutline, IconStarFilled, IconClearText, IconInbox, IconSearch, IconChevronDown } from "./renderer-icons";
 import { extractMessageUrls, hostOf } from "./src/services/message-urls";
+import { ClipHistoryPanel } from "./clip-history-panel";
+import type { ClipHistoryEntry } from "./clip-history-panel";
 
 const DEFAULT_CONFIG = {
   serverUrl: "",
@@ -217,6 +219,8 @@ type GotifyAPI = {
   extractCodes: (items: { title?: string; message?: string }[]) => Promise<string[]>;
   writeClipboard: (text: string) => Promise<boolean>;
   probeClipboardCapability: (payload: { serverUrl?: string; clientToken?: string }) => Promise<{ supported?: boolean | null; status?: number; reason?: string }>;
+  getClipboardHistory: () => Promise<{ ok: boolean; entries?: ClipHistoryEntry[]; reason?: string }>;
+  replayClipboardHistory: (entry: ClipHistoryEntry) => Promise<{ ok: boolean; reason?: string }>;
   getConfig: () => Promise<Partial<Config>>;
   saveConfig: (config: Config) => Promise<Config>;
   testConnection: (payload: { serverUrl: string; clientToken: string }) => Promise<void>;
@@ -699,9 +703,9 @@ function SettingsModal({
                   />
                 ))}
               </div>
-              <div className="mt-1 text-[11px] text-text-muted">文本档当前版本生效；图片与文件同步随后续版本开放</div>
+              <div className="mt-1 text-[11px] text-text-muted">三档独立：关闭的类型不上传也不落地；探测优先级 文件 &gt; 图片 &gt; 文本</div>
             </div>
-            <SettingRow label="单个图片文件升格为图片" hint="关闭则按普通文件处理（随图片/文件同步开放生效）">
+            <SettingRow label="单个图片文件升格为图片" hint="复制单张图片文件按图片档同步（粘贴为图像）；关闭则按普通文件处理">
               <Switch checked={Boolean(draft.clipboardSync?.imagePromotion)} onChange={(v) => patchClipboard({ imagePromotion: v })} />
             </SettingRow>
             <SettingRow label="单项上限（MB）" hint="超过任一上限整组跳过，托盘气泡提示一次">
@@ -740,7 +744,7 @@ function SettingsModal({
                 className="h-7 w-20 rounded border border-border bg-input px-2 text-right text-[12px] tabular-nums text-text-soft outline-none focus:border-primary"
               />
             </SettingRow>
-            <SettingRow label="接收目录" hint="留空=「下载\HotifyClipboard」（随文件同步开放生效）">
+            <SettingRow label="接收目录" hint="远端文件组落盘位置（同名冲突自动加 (1)）；托盘「打开接收文件夹」直达">
               <input
                 value={draft.clipboardSync?.receiveDir || ""}
                 onChange={(event) => patchClipboard({ receiveDir: event.target.value })}
@@ -748,6 +752,7 @@ function SettingsModal({
                 className="h-7 w-40 rounded border border-border bg-input px-2 text-[12px] text-text-soft outline-none focus:border-primary"
               />
             </SettingRow>
+            {Boolean(draft.clipboardSync?.enabled) ? <ClipHistoryPanel formatTime={formatDate} /> : null}
           </div>
           <div className="rounded border border-border-light bg-card-hover-alt p-3">
             <div className="mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted">外观</div>

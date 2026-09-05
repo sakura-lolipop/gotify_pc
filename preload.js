@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld("gotifyAPI", {
   extractCodes: (items) => ipcRenderer.invoke("code:extractBatch", items),
   writeClipboard: (text) => ipcRenderer.invoke("clipboard:writeText", text),
   probeClipboardCapability: (payload) => ipcRenderer.invoke("clipboard:probeCapability", payload),
+  getClipboardHistory: () => ipcRenderer.invoke("clipboard:getHistory"),
+  replayClipboardHistory: (entry) => ipcRenderer.invoke("clipboard:replay", entry),
   getConfig: () => ipcRenderer.invoke("config:get"),
   saveConfig: (config) => ipcRenderer.invoke("config:save", config),
   getSoundList: () => ipcRenderer.invoke("sounds:list"),

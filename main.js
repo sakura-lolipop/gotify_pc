@@ -1,6 +1,6 @@
 const path = require("node:path");
 const fs = require("node:fs");
-const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog, nativeTheme, clipboard, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog, nativeTheme, clipboard, shell, ClipboardItem } = require("electron");
 const { ConfigStore } = require("./src/services/config-store");
 const { HistoryStore } = require("./src/services/history-store");
 const { GotifyClient, testConnection } = require("./src/services/gotify-client");
@@ -674,10 +674,21 @@ app.whenReady().then(() => {
   });
   gotifyClient = new GotifyClient();
   bindGotifyEvents();
-  // CP-C2 剪贴板同步装配（单入口：事件转发/IPC/托盘段收在 clipboard-sync.js，
+  // CP-C2~C4 剪贴板同步装配（单入口：事件转发/IPC/托盘段收在 clipboard-sync.js，
   // 这里只留生命周期挂点）。tick 自门控（未启用=no-op），无条件 start。
+  // C3/C4 注入：ClipboardItem（44 新 API 写板）/nativeImage（非 png 转 png）/
+  // shell（托盘打开接收文件夹）/defaultReceiveDir（app.getPath 依赖 app ready，
+  // 此处已进 whenReady）。接收目录默认值（§7）：Downloads\HotifyClipboard。
   clipboardSync = initClipboardSync({
-    electron: { clipboard, ipcMain, getTray: () => tray },
+    electron: {
+      clipboard,
+      ClipboardItem,
+      nativeImage,
+      shell,
+      ipcMain,
+      getTray: () => tray,
+      defaultReceiveDir: path.join(app.getPath("downloads"), "HotifyClipboard")
+    },
     getConfig: () => configStore.get(),
     client: gotifyClient,
     saveConfig: (next, source) => applyConfigChange(next, source),
