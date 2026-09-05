@@ -78,7 +78,11 @@ function initClipPicker({ electron, sync, getConfig, onMenuRefresh }) {
       width: 460,
       height: 480,
       show: false,
-      frame: false,
+      // 系统真标题栏机制（用户裁定「加个真的」）：titleBarStyle hidden + overlay=系统级
+      // 拖拽（整条标题区,免 CSS drag 区被内容吃光的坑）+系统原生 X 按钮,视觉融入
+      //（Win11 Terminal/设置同款;overlay 区叠在 web 内容上,picker.html 顶部留同高 spacer）。
+      titleBarStyle: "hidden",
+      titleBarOverlay: { height: 32 },
       resizable: false,
       skipTaskbar: true,
       alwaysOnTop: true,
