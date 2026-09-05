@@ -16,7 +16,8 @@
     "build": "npm run build:assets && npm run prepare:icon && electron-builder",
     "build:win": "npm run build:assets && npm run prepare:icon && electron-builder --win",
     "build:win:ci": "npm run build:assets && npm run prepare:icon && electron-builder --win --publish never",
-    "build:win:clean": "node scripts/build-win-clean.js"
+    "build:win:clean": "node scripts/build-win-clean.js",
+    "type-check": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/react": "^18.3.28",

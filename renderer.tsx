@@ -263,11 +263,11 @@ declare global {
 //（后续「保存」落盘同值=幂等，两条保存路径不打架）。修饰必须含 Ctrl 或 Alt（纯 Shift+键会
 // 挡正常打字，拒绝录制）。
 function HotkeyRow({ hotkey, onSaved }: { hotkey: string; onSaved: (acc: string) => void }) {
-  const [recording, setRecording] = React.useState(false);
-  const [message, setMessage] = React.useState<{ ok: boolean; text: string } | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const display = hotkey || "Ctrl+Alt+V";
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!recording) {
       return;
     }
