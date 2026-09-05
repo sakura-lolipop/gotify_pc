@@ -47,7 +47,21 @@ const DEFAULT_CONFIG = {
   autoRefreshInterval: 10000,
   barkServerUrl: "",
   barkForwardApps: [], // Array of app IDs to forward, empty means none (or all? let's make it explicit selection)
-  mutedNotificationApps: [] // Array of app IDs to mute popup notifications
+  mutedNotificationApps: [], // Array of app IDs to mute popup notifications
+  // 跨设备剪贴板同步（docs/clipboard.md §7，CP-C2）：主开关默认关（侵入性功能）。
+  // 四上限以 MB/个为单位存（UI 自然单位）；接收目录空=默认 Downloads\HotifyClipboard。
+  // 图片/文件档与 imagePromotion/receiveDir 由 C3/C4 消费（设置先行落地）。
+  clipboardSync: {
+    enabled: false,
+    paused: false, // 托盘暂停（持久——重启不静默恢复）
+    types: { text: true, image: true, file: true }, // PC 三档全开（§7 2026-09-05 钉）
+    imagePromotion: true, // 单个图片文件升格为图片同步（学 SyncClipboard）
+    maxItemMB: 50,
+    maxGroupMB: 100,
+    maxItems: 32,
+    maxTextMB: 1,
+    receiveDir: ""
+  }
 };
 
 // glass/themeCustom 的「浅/深 → 块」两层合并:存量块逐个补默认,缺的键
@@ -60,6 +74,14 @@ function mergeModeSections(defaults, saved) {
   for (const mode of Object.keys(defaults)) {
     out[mode] = { ...defaults[mode], ...(saved[mode] && typeof saved[mode] === "object" ? saved[mode] : {}) };
   }
+  return out;
+}
+
+// clipboardSync 两层合并（顶层键 + types 子对象逐键补默认）：渲染层草稿或旧
+// 存量缺新键时由默认补齐（未来 C3/C4 加键不破老配置）
+function mergeClipboardSync(defaults, saved) {
+  const out = { ...defaults, ...(saved && typeof saved === "object" ? saved : {}) };
+  out.types = { ...defaults.types, ...(saved?.types && typeof saved.types === "object" ? saved.types : {}) };
   return out;
 }
 
@@ -83,6 +105,7 @@ class ConfigStore {
       for (const key of ["glass", "themeCustom", "cardGlass"]) {
         merged[key] = mergeModeSections(DEFAULT_CONFIG[key], parsed?.[key]);
       }
+      merged.clipboardSync = mergeClipboardSync(DEFAULT_CONFIG.clipboardSync, parsed?.clipboardSync);
       return merged;
     } catch {
       return { ...DEFAULT_CONFIG };
@@ -95,6 +118,7 @@ class ConfigStore {
 
   save(nextConfig) {
     this.config = { ...DEFAULT_CONFIG, ...nextConfig };
+    this.config.clipboardSync = mergeClipboardSync(DEFAULT_CONFIG.clipboardSync, nextConfig?.clipboardSync);
     fs.writeFileSync(this.configPath, JSON.stringify(this.config, null, 2), "utf8");
     return this.get();
   }

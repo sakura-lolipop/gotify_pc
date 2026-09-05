@@ -116,7 +116,8 @@ function notify(message, config) {
   if (config.autoCopyVerificationCode) {
     const code = extractVerificationCode(message.title, message.message);
     if (code) {
-      clipboard.writeText(code);
+      // Electron 44 clipboard 全 async：fire-and-forget + 错误可见（无 unhandled rejection）
+      Promise.resolve(clipboard.writeText(code)).catch((e) => console.error("[Notify] autoCopy write failed:", e?.message || e));
     }
   }
   if (isPopupMutedForApp(config, message.appid)) {
@@ -631,7 +632,7 @@ function registerCardIpc() {
     // Card closes itself 1.5s after showing the 复制成功 badge; closing
     // here would cut the feedback short.
     if (code) {
-      clipboard.writeText(code);
+      Promise.resolve(clipboard.writeText(code)).catch((e) => console.error("[Notify] copy-code write failed:", e?.message || e));
     }
   });
   ipcMain.on("custom-notification-open-main", (_, windowId) => {
@@ -678,7 +679,7 @@ function showNativeNotification(message, config) {
   });
   notification.on("click", () => {
     if (verificationCode) {
-      clipboard.writeText(verificationCode);
+      Promise.resolve(clipboard.writeText(verificationCode)).catch((e) => console.error("[Notify] click-copy write failed:", e?.message || e));
     }
     getMainWindow()?.show();
   });

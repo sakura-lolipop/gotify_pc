@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld("gotifyAPI", {
   getThemeState: () => ipcRenderer.invoke("theme:get"),
   extractCodes: (items) => ipcRenderer.invoke("code:extractBatch", items),
   writeClipboard: (text) => ipcRenderer.invoke("clipboard:writeText", text),
+  probeClipboardCapability: (payload) => ipcRenderer.invoke("clipboard:probeCapability", payload),
   getConfig: () => ipcRenderer.invoke("config:get"),
   saveConfig: (config) => ipcRenderer.invoke("config:save", config),
   getSoundList: () => ipcRenderer.invoke("sounds:list"),

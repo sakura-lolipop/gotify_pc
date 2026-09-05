@@ -4,6 +4,7 @@ const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog, nativeThem
 const { ConfigStore } = require("./src/services/config-store");
 const { HistoryStore } = require("./src/services/history-store");
 const { GotifyClient, testConnection } = require("./src/services/gotify-client");
+const { initClipboardSync } = require("./src/services/clipboard-sync");
 const {
   initNotifier,
   notify,
@@ -20,6 +21,7 @@ let tray = null;
 let configStore = null;
 let historyStore = null;
 let gotifyClient = null;
+let clipboardSync = null;
 let appIcon = null;
 let currentConnectionStatus = { connected: false, status: "未连接" };
 let storageDirPath = "";
@@ -273,17 +275,27 @@ function createWindow() {
   });
 }
 
+// 托盘菜单重建为函数（CP-C2）：剪贴板段由 clipboard-sync.traySection() 提供
+// （接线收拢在 initClipboardSync——notifier initNotifier 同款），随状态变化重建。
+function buildTrayTemplate() {
+  return [
+    { label: "显示主界面", click: () => revealMainWindow() },
+    { label: "设置", click: () => mainWindow?.webContents.send("open-settings") },
+    ...(clipboardSync?.traySection() || []),
+    { type: "separator" },
+    { label: "退出", click: () => quitApp() }
+  ];
+}
+
+function refreshTrayMenu() {
+  tray?.setContextMenu(Menu.buildFromTemplate(buildTrayTemplate()));
+}
+
 function createTray() {
   const trayIcon = appIcon.resize({ width: 16, height: 16 });
   tray = new Tray(trayIcon);
-  const contextMenu = Menu.buildFromTemplate([
-    { label: "显示主界面", click: () => revealMainWindow() },
-    { label: "设置", click: () => mainWindow?.webContents.send("open-settings") },
-    { type: "separator" },
-    { label: "退出", click: () => quitApp() }
-  ]);
+  tray.setContextMenu(Menu.buildFromTemplate(buildTrayTemplate()));
   tray.setToolTip("Gotify 客户端");
-  tray.setContextMenu(contextMenu);
   tray.on("click", () => revealMainWindow());
 }
 
@@ -420,6 +432,52 @@ const SOUND_BRAND_NAMES = { huawei: "华为", xiaomi: "小米", apple: "Apple", 
 const customSoundsDir = () => path.join(app.getPath("userData"), "sounds");
 const CUSTOM_SOUND_RE = /^custom\/([\w .-]+\.(?:ogg|mp3|wav))$/i;
 
+// 配置应用单一入口（config:save IPC 与托盘暂停切换共用）：保存+主题+自启+WS
+// 重启判定+剪贴板同步开关消化+托盘菜单重建。source：ui=设置弹窗（草稿是开窗
+// 快照，clipboardSync.paused 的 writer=托盘——整包覆盖会静默回滚弹窗期间托盘
+// 的暂停操作，故 UI 路以盘上现值保 paused）；tray=托盘切换（携带翻转后真值）。
+async function applyConfigChange(nextConfig, source = "ui") {
+  const previous = configStore.get();
+  if (source === "ui" && nextConfig?.clipboardSync) {
+    nextConfig.clipboardSync = { ...nextConfig.clipboardSync, paused: previous.clipboardSync?.paused ?? false };
+  }
+  const saved = configStore.save(nextConfig);
+  applyThemeFromConfig();
+
+  // Handle auto-launch
+  const loginSettings = app.getLoginItemSettings();
+  if (loginSettings.openAtLogin !== saved.autoLaunch) {
+    app.setLoginItemSettings({
+      openAtLogin: saved.autoLaunch,
+      path: process.execPath,
+      // 开机自启时带 --hidden，启动时据此最小化到托盘；关闭自启时不带参数
+      args: saved.autoLaunch ? ["--hidden"] : []
+    });
+  }
+
+  // 三轮：仅连接参数(地址/令牌)变化才重启 WS——主题工坊保存高频，
+  // 无条件 stop/start 会每次断连进重连抖动（「保存后状态不更新」放大器）
+  const connectionChanged =
+    String(previous.serverUrl || "").trim() !== String(saved.serverUrl || "").trim() ||
+    String(previous.clientToken || "").trim() !== String(saved.clientToken || "").trim();
+  // 材质变化即时应用（实时切换已由工坊 IPC 做过，这里兜“外部改配置文件”
+  // 的场景；写点在 applyWindowMaterial）
+  if (previous.windowMaterial !== saved.windowMaterial) {
+    applyWindowMaterial(saved.windowMaterial);
+  }
+  if (connectionChanged) {
+    gotifyClient.stop();
+    if (saved.serverUrl && saved.clientToken) {
+      gotifyClient.start(saved);
+      await refreshApplications(saved, true);
+    }
+  }
+  // CP-C2：剪贴板同步开关/暂停消化（start/stop+sub/unsub+fatal 复位）
+  clipboardSync?.onConfigChanged(previous, saved);
+  refreshTrayMenu();
+  return saved;
+}
+
 function setupIpc() {
   ipcMain.handle("app:getVersion", () => `v${app.getVersion()}`);
   ipcMain.handle("theme:get", () => ({ dark: nativeTheme.shouldUseDarkColors }));
@@ -427,8 +485,9 @@ function setupIpc() {
   ipcMain.handle("code:extractBatch", (_, items) =>
     (Array.isArray(items) ? items : []).map((i) => extractVerificationCode(i?.title, i?.message))
   );
-  ipcMain.handle("clipboard:writeText", (_, text) => {
-    clipboard.writeText(String(text || ""));
+  ipcMain.handle("clipboard:writeText", async (_, text) => {
+    // Electron 44 clipboard 全 async：await 落地（IPC 语义「已写入」非「已提交」）
+    await clipboard.writeText(String(text || ""));
     return true;
   });
   ipcMain.handle("config:get", () => configStore.get());
@@ -519,41 +578,7 @@ function setupIpc() {
       return null;
     }
   });
-  ipcMain.handle("config:save", async (_, nextConfig) => {
-    const previous = configStore.get();
-    const saved = configStore.save(nextConfig);
-    applyThemeFromConfig();
-
-    // Handle auto-launch
-    const loginSettings = app.getLoginItemSettings();
-    if (loginSettings.openAtLogin !== saved.autoLaunch) {
-      app.setLoginItemSettings({
-        openAtLogin: saved.autoLaunch,
-        path: process.execPath,
-        // 开机自启时带 --hidden，启动时据此最小化到托盘；关闭自启时不带参数
-        args: saved.autoLaunch ? ["--hidden"] : []
-      });
-    }
-
-    // 三轮：仅连接参数(地址/令牌)变化才重启 WS——主题工坊保存高频，
-    // 无条件 stop/start 会每次断连进重连抖动（「保存后状态不更新」放大器）
-    const connectionChanged =
-      String(previous.serverUrl || "").trim() !== String(saved.serverUrl || "").trim() ||
-      String(previous.clientToken || "").trim() !== String(saved.clientToken || "").trim();
-    // 材质变化即时应用（实时切换已由工坊 IPC 做过，这里兜“外部改配置文件”
-    // 的场景；写点在 applyWindowMaterial）
-    if (previous.windowMaterial !== saved.windowMaterial) {
-      applyWindowMaterial(saved.windowMaterial);
-    }
-    if (connectionChanged) {
-      gotifyClient.stop();
-      if (saved.serverUrl && saved.clientToken) {
-        gotifyClient.start(saved);
-        await refreshApplications(saved, true);
-      }
-    }
-    return saved;
-  });
+  ipcMain.handle("config:save", async (_, nextConfig) => applyConfigChange(nextConfig));
   ipcMain.handle("messages:get", () => historyStore.getAll());
   ipcMain.handle("messages:clear", () => {
     try {
@@ -630,6 +655,7 @@ function applyThemeFromConfig() {
 function quitApp() {
   app.isQuiting = true;
   closeAllNotifications();
+  clipboardSync?.stop();
   gotifyClient?.stop();
   tray?.destroy();
   app.quit();
@@ -648,6 +674,16 @@ app.whenReady().then(() => {
   });
   gotifyClient = new GotifyClient();
   bindGotifyEvents();
+  // CP-C2 剪贴板同步装配（单入口：事件转发/IPC/托盘段收在 clipboard-sync.js，
+  // 这里只留生命周期挂点）。tick 自门控（未启用=no-op），无条件 start。
+  clipboardSync = initClipboardSync({
+    electron: { clipboard, ipcMain, getTray: () => tray },
+    getConfig: () => configStore.get(),
+    client: gotifyClient,
+    saveConfig: (next, source) => applyConfigChange(next, source),
+    onMenuRefresh: refreshTrayMenu
+  });
+  clipboardSync.start();
   setupIpc();
   // CP6 双肤单一事实：nativeTheme.themeSource 已解析「跟随系统/手动浅/手动深」，
   // renderer 只消费 shouldUseDarkColors 挂/摘 .dark 类，不再各自判断。

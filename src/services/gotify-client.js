@@ -84,6 +84,9 @@ class GotifyClient extends EventEmitter {
         // 首启动/重开后离线期消息既不弹也不进列表。幂等性由 main 侧按本地
         // 水位（id > getMaxId）过滤兜底，重复触发只是空拉。
         this.emit("catchup");
+        // CP-C2 剪贴板同步：每次 open 都广播（含首连/重连）——clip_sub 须随每次
+        // 连接重发（订阅是 per-conn 状态，重连不补发=静默失联）。
+        this.emit("open");
         this.reconnectDelay = 5000;
         this.lastErrorMessage = "";
         this.startHeartbeat();
@@ -95,6 +98,14 @@ class GotifyClient extends EventEmitter {
         try {
           const data = JSON.parse(String(payload));
           if (typeof data === "object" && data) {
+            // CP-C2 剪贴板帧按 type 分流（clip_ack/clip_update）：独立 JSON 对象，
+            // 与 gotify MessageExternal 无字段碰撞——但若走 normalize 会拿 local-*
+            // 兜底 id 进消息管线（弹卡+污染去重集），必须在归一化前拦截。
+            if (data.type === "clip_ack" || data.type === "clip_update") {
+              this.debug("info", "clip_frame", { socketId, type: data.type });
+              this.emit("clip-frame", data);
+              return;
+            }
             const normalized = this.normalizeMessage(data);
             if (this.isDuplicate(normalized)) {
               this.debug("warn", "duplicate_drop", { socketId, id: normalized.id, appid: normalized.appid });
@@ -134,6 +145,20 @@ class GotifyClient extends EventEmitter {
       if (!this.intentionalDisconnect && this.config?.enableReconnect) {
         this.scheduleReconnect();
       }
+    }
+  }
+
+  // CP-C2 剪贴板控制帧出口（clip_sub/clip_unsub）：连接未开=false 由调用方
+  // 自行补发（onTransportOpen 时点兜住），不在此排队。
+  sendClipFrame(frame) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return false;
+    }
+    try {
+      this.ws.send(JSON.stringify(frame));
+      return true;
+    } catch {
+      return false;
     }
   }
 

@@ -38,6 +38,19 @@ const DEFAULT_CONFIG = {
   themeCustom: {
     light: { bg: { tint: "#f6fbff", alpha: 0 }, list: { tint: "#ffffff", alpha: 0.75 }, input: { tint: "#ffffff", alpha: 1 } },
     dark: { bg: { tint: "#07111f", alpha: 0 }, list: { tint: "#ffffff", alpha: 0.045 }, input: { tint: "#0f1826", alpha: 1 } }
+  },
+  // 跨设备剪贴板同步（CP-C2，契约 docs/clipboard.md §7）：主开关默认关。
+  // 图片/文件档与 imagePromotion/receiveDir 由 C3/C4 消费（设置先行落地）。
+  clipboardSync: {
+    enabled: false,
+    paused: false,
+    types: { text: true, image: true, file: true },
+    imagePromotion: true,
+    maxItemMB: 50,
+    maxGroupMB: 100,
+    maxItems: 32,
+    maxTextMB: 1,
+    receiveDir: ""
   }
 };
 
@@ -203,6 +216,7 @@ type GotifyAPI = {
   getThemeState: () => Promise<{ dark?: boolean }>;
   extractCodes: (items: { title?: string; message?: string }[]) => Promise<string[]>;
   writeClipboard: (text: string) => Promise<boolean>;
+  probeClipboardCapability: (payload: { serverUrl?: string; clientToken?: string }) => Promise<{ supported?: boolean | null; status?: number; reason?: string }>;
   getConfig: () => Promise<Partial<Config>>;
   saveConfig: (config: Config) => Promise<Config>;
   testConnection: (payload: { serverUrl: string; clientToken: string }) => Promise<void>;
@@ -299,6 +313,9 @@ function SettingsModal({
   const [soundBrand, setSoundBrand] = useState<string | null>(null);
   // 主题工坊:浅/深两 tab;改动即时预览(直接注入 CSS 变量),取消关闭由 App 恢复
   const [themeTab, setThemeTab] = useState<"light" | "dark">("light");
+  // CP-C2 能力探测（交付策略 2026-09-05）：开关开/服务器信息变化时验 server
+  // 是否支持剪贴板同步——404=太老→「需要升级服务器」，静默空转换明确告知
+  const [clipCap, setClipCap] = useState<{ supported?: boolean | null; reason?: string } | null>(null);
 
   const patchWithPreview = (partial: Partial<Config>) => {
     patch(partial);
@@ -376,6 +393,33 @@ function SettingsModal({
     onResetNotice();
   }, []);
 
+  useEffect(() => {
+    if (!draft.clipboardSync?.enabled) {
+      setClipCap(null);
+      return;
+    }
+    // 300ms 防抖：地址/令牌每击键都发探测=半打的 URL+token 外泄面（对抗审 F7）
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      window.gotifyAPI
+        .probeClipboardCapability({ serverUrl: draft.serverUrl, clientToken: draft.clientToken })
+        .then((result) => {
+          if (!cancelled) {
+            setClipCap(result);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setClipCap({ supported: null });
+          }
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [draft.clipboardSync?.enabled, draft.serverUrl, draft.clientToken]);
+
   const groupedSounds = useMemo(() => {
     const groups: Record<string, { group: string; name: string; value: string }[]> = {};
     soundList.forEach((s) => {
@@ -414,6 +458,9 @@ function SettingsModal({
   };
 
   const patch = (partial: Partial<Config>) => setDraft((prev) => ({ ...prev, ...partial }));
+  // 剪贴板段局部更新（默认值兜底合并——老草稿缺新键时字段完整）
+  const patchClipboard = (partial: Partial<Config["clipboardSync"]>) =>
+    patch({ clipboardSync: { ...DEFAULT_CONFIG.clipboardSync, ...(draft.clipboardSync || {}), ...partial } });
   const onServerUrlChange = (event: ChangeEvent<HTMLInputElement>) => patch({ serverUrl: event.target.value });
   const onTokenChange = (event: ChangeEvent<HTMLInputElement>) => patch({ clientToken: event.target.value });
   const onBarkUrlChange = (event: ChangeEvent<HTMLInputElement>) => patch({ barkServerUrl: event.target.value });
@@ -627,6 +674,80 @@ function SettingsModal({
                 )}
               </div>
             </div>
+          </div>
+          <div className="rounded border border-border-light bg-card-hover-alt p-3">
+            <div className="mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted">跨设备剪贴板同步</div>
+            <SettingRow label="启用剪贴板同步" hint="复制即同步到其他设备（最新覆盖）；托盘可暂停/取最新，仅同账号多设备">
+              <Switch checked={Boolean(draft.clipboardSync?.enabled)} onChange={(v) => patchClipboard({ enabled: v })} />
+            </SettingRow>
+            {clipCap?.supported === false ? (
+              <div className="mb-1.5 rounded border border-danger-border bg-danger-bg px-2 py-1.5 text-[11px] text-danger-text">
+                服务器不支持剪贴板同步，需要升级服务器（连接返回 404）
+              </div>
+            ) : null}
+            <div className="border-t border-border-light pt-2">
+              <div className="mb-1.5 text-[13px] text-text">同步内容</div>
+              <div className="flex flex-wrap gap-1.5">
+                {([["text", "文本"], ["image", "图片"], ["file", "文件"]] as const).map(([key, label]) => (
+                  <Chip
+                    key={key}
+                    label={label}
+                    active={Boolean(draft.clipboardSync?.types?.[key])}
+                    onClick={() =>
+                      patchClipboard({ types: { ...DEFAULT_CONFIG.clipboardSync.types, ...(draft.clipboardSync?.types || {}), [key]: !draft.clipboardSync?.types?.[key] } })
+                    }
+                  />
+                ))}
+              </div>
+              <div className="mt-1 text-[11px] text-text-muted">文本档当前版本生效；图片与文件同步随后续版本开放</div>
+            </div>
+            <SettingRow label="单个图片文件升格为图片" hint="关闭则按普通文件处理（随图片/文件同步开放生效）">
+              <Switch checked={Boolean(draft.clipboardSync?.imagePromotion)} onChange={(v) => patchClipboard({ imagePromotion: v })} />
+            </SettingRow>
+            <SettingRow label="单项上限（MB）" hint="超过任一上限整组跳过，托盘气泡提示一次">
+              <input
+                type="number"
+                min={1}
+                value={draft.clipboardSync?.maxItemMB ?? 50}
+                onChange={(event) => patchClipboard({ maxItemMB: Math.max(1, Math.floor(Number(event.target.value) || 0)) })}
+                className="h-7 w-20 rounded border border-border bg-input px-2 text-right text-[12px] tabular-nums text-text-soft outline-none focus:border-primary"
+              />
+            </SettingRow>
+            <SettingRow label="单组总上限（MB）">
+              <input
+                type="number"
+                min={1}
+                value={draft.clipboardSync?.maxGroupMB ?? 100}
+                onChange={(event) => patchClipboard({ maxGroupMB: Math.max(1, Math.floor(Number(event.target.value) || 0)) })}
+                className="h-7 w-20 rounded border border-border bg-input px-2 text-right text-[12px] tabular-nums text-text-soft outline-none focus:border-primary"
+              />
+            </SettingRow>
+            <SettingRow label="单组数量上限（个）">
+              <input
+                type="number"
+                min={1}
+                value={draft.clipboardSync?.maxItems ?? 32}
+                onChange={(event) => patchClipboard({ maxItems: Math.max(1, Math.floor(Number(event.target.value) || 0)) })}
+                className="h-7 w-20 rounded border border-border bg-input px-2 text-right text-[12px] tabular-nums text-text-soft outline-none focus:border-primary"
+              />
+            </SettingRow>
+            <SettingRow label="文本上限（MB）" hint="服务器通道硬顶 1MB：调大仅在此范围内生效">
+              <input
+                type="number"
+                min={1}
+                value={draft.clipboardSync?.maxTextMB ?? 1}
+                onChange={(event) => patchClipboard({ maxTextMB: Math.max(1, Math.floor(Number(event.target.value) || 0)) })}
+                className="h-7 w-20 rounded border border-border bg-input px-2 text-right text-[12px] tabular-nums text-text-soft outline-none focus:border-primary"
+              />
+            </SettingRow>
+            <SettingRow label="接收目录" hint="留空=「下载\HotifyClipboard」（随文件同步开放生效）">
+              <input
+                value={draft.clipboardSync?.receiveDir || ""}
+                onChange={(event) => patchClipboard({ receiveDir: event.target.value })}
+                placeholder="Downloads\HotifyClipboard"
+                className="h-7 w-40 rounded border border-border bg-input px-2 text-[12px] text-text-soft outline-none focus:border-primary"
+              />
+            </SettingRow>
           </div>
           <div className="rounded border border-border-light bg-card-hover-alt p-3">
             <div className="mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted">外观</div>

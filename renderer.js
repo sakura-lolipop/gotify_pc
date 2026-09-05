@@ -24638,6 +24638,19 @@ var DEFAULT_CONFIG = {
   themeCustom: {
     light: { bg: { tint: "#f6fbff", alpha: 0 }, list: { tint: "#ffffff", alpha: 0.75 }, input: { tint: "#ffffff", alpha: 1 } },
     dark: { bg: { tint: "#07111f", alpha: 0 }, list: { tint: "#ffffff", alpha: 0.045 }, input: { tint: "#0f1826", alpha: 1 } }
+  },
+  // 跨设备剪贴板同步（CP-C2，契约 docs/clipboard.md §7）：主开关默认关。
+  // 图片/文件档与 imagePromotion/receiveDir 由 C3/C4 消费（设置先行落地）。
+  clipboardSync: {
+    enabled: false,
+    paused: false,
+    types: { text: true, image: true, file: true },
+    imagePromotion: true,
+    maxItemMB: 50,
+    maxGroupMB: 100,
+    maxItems: 32,
+    maxTextMB: 1,
+    receiveDir: ""
   }
 };
 function hexToRgba(hex, alpha) {
@@ -24786,24 +24799,25 @@ function SettingsModal({
   storageLockedByEnv,
   onResetNotice
 }) {
-  var _a;
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m;
   const [showToken, setShowToken] = (0, import_react.useState)(false);
   const [applications, setApplications] = (0, import_react.useState)([]);
   const [soundList, setSoundList] = (0, import_react.useState)([]);
   const [soundMenuOpen, setSoundMenuOpen] = (0, import_react.useState)(false);
   const [soundBrand, setSoundBrand] = (0, import_react.useState)(null);
   const [themeTab, setThemeTab] = (0, import_react.useState)("light");
+  const [clipCap, setClipCap] = (0, import_react.useState)(null);
   const patchWithPreview = (partial) => {
     patch(partial);
     applyThemeVars({ ...draft, ...partial });
   };
   const setBlock = (key, field, value) => {
-    var _a2, _b, _c;
-    const current = ((_b = (_a2 = draft.themeCustom) == null ? void 0 : _a2[themeTab]) == null ? void 0 : _b[key]) || DEFAULT_CONFIG.themeCustom[themeTab][key];
+    var _a2, _b2, _c2;
+    const current = ((_b2 = (_a2 = draft.themeCustom) == null ? void 0 : _a2[themeTab]) == null ? void 0 : _b2[key]) || DEFAULT_CONFIG.themeCustom[themeTab][key];
     const nextThemeCustom = {
       ...draft.themeCustom,
       [themeTab]: {
-        ...(_c = draft.themeCustom) == null ? void 0 : _c[themeTab],
+        ...(_c2 = draft.themeCustom) == null ? void 0 : _c2[themeTab],
         [key]: { ...current, [field]: value }
       }
     };
@@ -24863,6 +24877,29 @@ function SettingsModal({
     });
     onResetNotice();
   }, []);
+  (0, import_react.useEffect)(() => {
+    var _a2;
+    if (!((_a2 = draft.clipboardSync) == null ? void 0 : _a2.enabled)) {
+      setClipCap(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      window.gotifyAPI.probeClipboardCapability({ serverUrl: draft.serverUrl, clientToken: draft.clientToken }).then((result) => {
+        if (!cancelled) {
+          setClipCap(result);
+        }
+      }).catch(() => {
+        if (!cancelled) {
+          setClipCap({ supported: null });
+        }
+      });
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [(_a = draft.clipboardSync) == null ? void 0 : _a.enabled, draft.serverUrl, draft.clientToken]);
   const groupedSounds = (0, import_react.useMemo)(() => {
     const groups = {};
     soundList.forEach((s) => {
@@ -24872,7 +24909,7 @@ function SettingsModal({
     return groups;
   }, [soundList]);
   const currentSound = soundList.find((s) => s.value === draft.notificationSound);
-  const currentSoundLabel = (currentSound == null ? void 0 : currentSound.name) || ((_a = draft.notificationSound) == null ? void 0 : _a.split("/").pop()) || "\u9ED8\u8BA4";
+  const currentSoundLabel = (currentSound == null ? void 0 : currentSound.name) || ((_b = draft.notificationSound) == null ? void 0 : _b.split("/").pop()) || "\u9ED8\u8BA4";
   const previewOnly = async (value) => {
     try {
       const base64 = await window.gotifyAPI.previewSound(value);
@@ -24897,6 +24934,7 @@ function SettingsModal({
     previewOnly(value);
   };
   const patch = (partial) => setDraft((prev) => ({ ...prev, ...partial }));
+  const patchClipboard = (partial) => patch({ clipboardSync: { ...DEFAULT_CONFIG.clipboardSync, ...draft.clipboardSync || {}, ...partial } });
   const onServerUrlChange = (event) => patch({ serverUrl: event.target.value });
   const onTokenChange = (event) => patch({ clientToken: event.target.value });
   const onBarkUrlChange = (event) => patch({ barkServerUrl: event.target.value });
@@ -25102,6 +25140,80 @@ function SettingsModal({
               ] })
             ] }),
             /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u8DE8\u8BBE\u5907\u526A\u8D34\u677F\u540C\u6B65" }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u542F\u7528\u526A\u8D34\u677F\u540C\u6B65", hint: "\u590D\u5236\u5373\u540C\u6B65\u5230\u5176\u4ED6\u8BBE\u5907\uFF08\u6700\u65B0\u8986\u76D6\uFF09\uFF1B\u6258\u76D8\u53EF\u6682\u505C/\u53D6\u6700\u65B0\uFF0C\u4EC5\u540C\u8D26\u53F7\u591A\u8BBE\u5907", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: Boolean((_c = draft.clipboardSync) == null ? void 0 : _c.enabled), onChange: (v) => patchClipboard({ enabled: v }) }) }),
+              (clipCap == null ? void 0 : clipCap.supported) === false ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 rounded border border-danger-border bg-danger-bg px-2 py-1.5 text-[11px] text-danger-text", children: "\u670D\u52A1\u5668\u4E0D\u652F\u6301\u526A\u8D34\u677F\u540C\u6B65\uFF0C\u9700\u8981\u5347\u7EA7\u670D\u52A1\u5668\uFF08\u8FDE\u63A5\u8FD4\u56DE 404\uFF09" }) : null,
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "border-t border-border-light pt-2", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[13px] text-text", children: "\u540C\u6B65\u5185\u5BB9" }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex flex-wrap gap-1.5", children: [["text", "\u6587\u672C"], ["image", "\u56FE\u7247"], ["file", "\u6587\u4EF6"]].map(([key, label]) => {
+                  var _a2, _b2;
+                  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                    Chip,
+                    {
+                      label,
+                      active: Boolean((_b2 = (_a2 = draft.clipboardSync) == null ? void 0 : _a2.types) == null ? void 0 : _b2[key]),
+                      onClick: () => {
+                        var _a3, _b3, _c2;
+                        return patchClipboard({ types: { ...DEFAULT_CONFIG.clipboardSync.types, ...((_a3 = draft.clipboardSync) == null ? void 0 : _a3.types) || {}, [key]: !((_c2 = (_b3 = draft.clipboardSync) == null ? void 0 : _b3.types) == null ? void 0 : _c2[key]) } });
+                      }
+                    },
+                    key
+                  );
+                }) }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mt-1 text-[11px] text-text-muted", children: "\u6587\u672C\u6863\u5F53\u524D\u7248\u672C\u751F\u6548\uFF1B\u56FE\u7247\u4E0E\u6587\u4EF6\u540C\u6B65\u968F\u540E\u7EED\u7248\u672C\u5F00\u653E" })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u5355\u4E2A\u56FE\u7247\u6587\u4EF6\u5347\u683C\u4E3A\u56FE\u7247", hint: "\u5173\u95ED\u5219\u6309\u666E\u901A\u6587\u4EF6\u5904\u7406\uFF08\u968F\u56FE\u7247/\u6587\u4EF6\u540C\u6B65\u5F00\u653E\u751F\u6548\uFF09", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: Boolean((_d = draft.clipboardSync) == null ? void 0 : _d.imagePromotion), onChange: (v) => patchClipboard({ imagePromotion: v }) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u5355\u9879\u4E0A\u9650\uFF08MB\uFF09", hint: "\u8D85\u8FC7\u4EFB\u4E00\u4E0A\u9650\u6574\u7EC4\u8DF3\u8FC7\uFF0C\u6258\u76D8\u6C14\u6CE1\u63D0\u793A\u4E00\u6B21", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                "input",
+                {
+                  type: "number",
+                  min: 1,
+                  value: (_f = (_e = draft.clipboardSync) == null ? void 0 : _e.maxItemMB) != null ? _f : 50,
+                  onChange: (event) => patchClipboard({ maxItemMB: Math.max(1, Math.floor(Number(event.target.value) || 0)) }),
+                  className: "h-7 w-20 rounded border border-border bg-input px-2 text-right text-[12px] tabular-nums text-text-soft outline-none focus:border-primary"
+                }
+              ) }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u5355\u7EC4\u603B\u4E0A\u9650\uFF08MB\uFF09", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                "input",
+                {
+                  type: "number",
+                  min: 1,
+                  value: (_h = (_g = draft.clipboardSync) == null ? void 0 : _g.maxGroupMB) != null ? _h : 100,
+                  onChange: (event) => patchClipboard({ maxGroupMB: Math.max(1, Math.floor(Number(event.target.value) || 0)) }),
+                  className: "h-7 w-20 rounded border border-border bg-input px-2 text-right text-[12px] tabular-nums text-text-soft outline-none focus:border-primary"
+                }
+              ) }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u5355\u7EC4\u6570\u91CF\u4E0A\u9650\uFF08\u4E2A\uFF09", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                "input",
+                {
+                  type: "number",
+                  min: 1,
+                  value: (_j = (_i = draft.clipboardSync) == null ? void 0 : _i.maxItems) != null ? _j : 32,
+                  onChange: (event) => patchClipboard({ maxItems: Math.max(1, Math.floor(Number(event.target.value) || 0)) }),
+                  className: "h-7 w-20 rounded border border-border bg-input px-2 text-right text-[12px] tabular-nums text-text-soft outline-none focus:border-primary"
+                }
+              ) }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u6587\u672C\u4E0A\u9650\uFF08MB\uFF09", hint: "\u670D\u52A1\u5668\u901A\u9053\u786C\u9876 1MB\uFF1A\u8C03\u5927\u4EC5\u5728\u6B64\u8303\u56F4\u5185\u751F\u6548", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                "input",
+                {
+                  type: "number",
+                  min: 1,
+                  value: (_l = (_k = draft.clipboardSync) == null ? void 0 : _k.maxTextMB) != null ? _l : 1,
+                  onChange: (event) => patchClipboard({ maxTextMB: Math.max(1, Math.floor(Number(event.target.value) || 0)) }),
+                  className: "h-7 w-20 rounded border border-border bg-input px-2 text-right text-[12px] tabular-nums text-text-soft outline-none focus:border-primary"
+                }
+              ) }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u63A5\u6536\u76EE\u5F55", hint: "\u7559\u7A7A=\u300C\u4E0B\u8F7D\\HotifyClipboard\u300D\uFF08\u968F\u6587\u4EF6\u540C\u6B65\u5F00\u653E\u751F\u6548\uFF09", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                "input",
+                {
+                  value: ((_m = draft.clipboardSync) == null ? void 0 : _m.receiveDir) || "",
+                  onChange: (event) => patchClipboard({ receiveDir: event.target.value }),
+                  placeholder: "Downloads\\HotifyClipboard",
+                  className: "h-7 w-40 rounded border border-border bg-input px-2 text-[12px] text-text-soft outline-none focus:border-primary"
+                }
+              ) })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
               /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u5916\u89C2" }),
               /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u4E3B\u9898", hint: "\u8DDF\u968F\u7CFB\u7EDF\u6216\u624B\u52A8\u6307\u5B9A\uFF0C\u7A97\u53E3\u6750\u8D28\u540C\u6B65\u6DF1\u6D45", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex rounded border border-border bg-input p-0.5", children: [["system", "\u8DDF\u968F\u7CFB\u7EDF"], ["light", "\u6D45\u8272"], ["dark", "\u6DF1\u8272"]].map(([value, label]) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                 "button",
@@ -25137,8 +25249,8 @@ function SettingsModal({
                 )) }),
                 /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SettingRow, { label: "\u5B9E\u65F6\u78E8\u7802\u684C\u9762", hint: "\u5F00=Acrylic\uFF08\u900F\u51FA\u5B9E\u65F6\u6A21\u7CCA\u7684\u684C\u9762\u5185\u5BB9\uFF09\uFF1B\u5173=Mica\uFF08\u58C1\u7EB8\u9759\u6001\u91C7\u6837\uFF0C\u7701\u7535\uFF09", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Switch, { checked: (draft.windowMaterial || "mica") === "acrylic", onChange: (v) => onMaterialChange(v ? "acrylic" : "mica") }) }),
                 [["bg", "\u7A97\u53E3\u80CC\u666F"], ["list", "\u6D88\u606F\u5217\u8868"], ["input", "\u8F93\u5165\u5E95\u8272"]].map(([key, label]) => {
-                  var _a2, _b;
-                  const block = ((_b = (_a2 = draft.themeCustom) == null ? void 0 : _a2[themeTab]) == null ? void 0 : _b[key]) || DEFAULT_CONFIG.themeCustom[themeTab][key];
+                  var _a2, _b2;
+                  const block = ((_b2 = (_a2 = draft.themeCustom) == null ? void 0 : _a2[themeTab]) == null ? void 0 : _b2[key]) || DEFAULT_CONFIG.themeCustom[themeTab][key];
                   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-2 py-1", children: [
                     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "w-16 shrink-0 text-[12px] text-text-soft", children: label }),
                     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(ColorField, { value: block.tint, onChange: (hex) => setBlock(key, "tint", hex), presets: PRESET_TINTS[themeTab] }),
