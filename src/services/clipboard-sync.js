@@ -75,14 +75,18 @@ function loadUser32() {
   return user32Api;
 }
 
-// koffi 路 Exclude 标记存在性（同步单路，Electron has 探针判负已摘——见 isExcluded 注释）
+// koffi 路 Exclude 标记存在性（同步单路，Electron has 探针判负已摘——见 isExcluded 注释）。
+// 格式名以 SyncClipboard 客户端实审修正为准（clipboard.md §5，2026-09-05）：
+// ExcludeClipboardContentForMonitorProcessing（初版误写 FromTrackProcessingProcesses——
+// 探针自洽但探不到真实密码管理器标记=假绿）。CanIncludeInClipboardHistory/
+// CanUploadToCloudClipboard 两 DWORD 族=C3 红探针一次验三格式再并入。
 function excludedMarkerNative() {
   const api = loadUser32();
   if (!api) {
     return false;
   }
   try {
-    const fmt = api.registerFormat("ExcludeClipboardContentFromTrackProcessingProcesses");
+    const fmt = api.registerFormat("ExcludeClipboardContentForMonitorProcessing");
     return fmt !== 0 && api.hasFormat(fmt) !== 0;
   } catch {
     return false;
@@ -269,7 +273,8 @@ class ClipboardSync extends EventEmitter {
   // has() 返 Promise（同步误用恒 truthy=全部误判排除），且置真 marker 后 await has()
   // 仍 false=看不见自定义格式（探针判负→该路摘除不留双保险）；koffi
   // RegisterClipboardFormatW（同名单例 id）+IsClipboardFormatAvailable 双向验过
-  //（有标记=1/还原=0）。非 win32=无探测能力（本 app 目标平台 win32，koffi 必在）。
+  //（有标记=1/还原=0；格式名 2026-09-05 实审订正为 ForMonitorProcessing）。
+  // 非 win32=无探测能力（本 app 目标平台 win32，koffi 必在）。
   async isExcluded() {
     return excludedMarkerNative();
   }
