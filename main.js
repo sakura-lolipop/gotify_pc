@@ -708,6 +708,7 @@ app.whenReady().then(() => {
       BrowserWindow,
       ipcMain,
       screen,
+      nativeTheme,
       saveConfigForPicker: (next) => applyConfigChange(next, "ui")
     },
     sync: clipboardSync,

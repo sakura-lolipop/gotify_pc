@@ -78,11 +78,11 @@ function initClipPicker({ electron, sync, getConfig, onMenuRefresh }) {
       width: 460,
       height: 480,
       show: false,
-      // 系统真标题栏机制（用户裁定「加个真的」）：titleBarStyle hidden + overlay=系统级
-      // 拖拽（整条标题区,免 CSS drag 区被内容吃光的坑）+系统原生 X 按钮,视觉融入
-      //（Win11 Terminal/设置同款;overlay 区叠在 web 内容上,picker.html 顶部留同高 spacer）。
-      titleBarStyle: "hidden",
-      titleBarOverlay: { height: 32 },
+      // 无边框+CSS 专用拖拽条（回退 overlay 方案：其拖拽在 resizable:false 窗不可靠+默认
+      // 色带不透明——两坑两轮实报。CSS app-region drag 是 Electron 成熟机制,上轮失败根因
+      // =drag 区与输入框同容器被 flex 吃光,独立 #dragbar（picker.html 顶部 28px 纯拖拽条
+      // +X 钮 no-drag 浮其右）无此问题）。
+      frame: false,
       resizable: false,
       skipTaskbar: true,
       alwaysOnTop: true,
