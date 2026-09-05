@@ -15,10 +15,17 @@
   html, body { height: 100%; background: transparent; }
   body { color: var(--text); font: 13px/1.45 "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif; }
   #search {
-    width: 100%; padding: 10px 14px; border: none; border-bottom: 1px solid var(--border);
+    width: 100%; padding: 10px 40px 10px 14px; border: none; border-bottom: 1px solid var(--border);
     background: var(--input); color: var(--text); font-size: 13px; outline: none;
   }
   #search::placeholder { color: var(--text-muted); }
+  #close {
+    position: absolute; top: 6px; right: 6px; width: 26px; height: 26px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; border-radius: 6px; background: transparent;
+    color: var(--text-muted); font-size: 14px; line-height: 1; cursor: pointer;
+  }
+  #close:hover { background: var(--layer-hover); color: var(--danger-text); }
   #list { height: calc(100% - 41px); overflow-y: auto; padding: 4px 0; }
   .entry {
     padding: 8px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 2px;
@@ -32,10 +39,12 @@
 </head>
 <body>
 <input id="search" placeholder="过滤…（↑↓ 选择，Enter 取，Esc 关）" autofocus />
+<button id="close" title="关闭 (Esc)" aria-label="关闭">×</button>
 <div id="list"></div>
 <script>
   const listEl = document.getElementById("list");
   const searchEl = document.getElementById("search");
+  document.getElementById("close").onclick = () => window.close();
   let entries = [];
   let filtered = [];
   let cursor = 0;
