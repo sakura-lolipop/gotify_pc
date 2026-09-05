@@ -68,12 +68,20 @@ function initClipPicker({ electron, sync, getConfig, onMenuRefresh }) {
       resizable: false,
       skipTaskbar: true,
       alwaysOnTop: true,
+      // 主题/材质=app 单一真相：不设 backgroundColor（窗口底交给 DWM，同主窗配方），
+      // 构造后 setBackgroundMaterial(同 config.windowMaterial 单源)；picker.html body
+      // transparent + CSS 变量族（assets/tailwind.css）+ html.dark 跟 nativeTheme。
       webPreferences: {
         preload: path.join(__dirname, "..", "..", "preload.js"),
         contextIsolation: true,
         nodeIntegration: false
       }
     });
+    if (process.platform === "win32") {
+      try {
+        pickerWin.setBackgroundMaterial(getConfig()?.windowMaterial === "acrylic" ? "acrylic" : "mica");
+      } catch {}
+    }
     pickerWin.loadFile(path.join(__dirname, "..", "..", "picker.html"));
     pickerWin.once("ready-to-show", () => {
       pickerWin.show();
@@ -92,8 +100,20 @@ function initClipPicker({ electron, sync, getConfig, onMenuRefresh }) {
 
   // ── IPC：热键试注册（冲突检测）+ 保存 + 拾取器关闭 ──
 
+  // 录制期开关（修「录制被自身全局键拦截」：录制时当前生效键被 OS 层 globalShortcut 吞掉、
+  // 渲染进程收不到 keydown——进入录制即注销，录完（成功/取消/组件卸载）重挂）。
+  ipcMain.handle("picker:beginRecording", () => {
+    globalShortcut.unregisterAll();
+    return { ok: true };
+  });
+  ipcMain.handle("picker:endRecording", () => {
+    registerHotkey();
+    return { ok: true };
+  });
+
   // 试注册：立刻试一次、验完即还原（真实注册只发生在 registerHotkey 的正式路径）。
   // 判定：ok=false + reason=occupied=组合被系统里其他程序占用；invalid=Electron 不认。
+  // 注：录制期全局键已注销，按当前生效键也能完整捕获（=保留现键的录制路径）。
   ipcMain.handle("picker:tryAccelerator", (_ev, accelerator) => {
     const acc = String(accelerator || "").trim();
     if (!acc) {

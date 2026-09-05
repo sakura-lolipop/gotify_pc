@@ -222,8 +222,10 @@ type GotifyAPI = {
   probeClipboardCapability: (payload: { serverUrl?: string; clientToken?: string }) => Promise<{ supported?: boolean | null; status?: number; reason?: string }>;
   getClipboardHistory: () => Promise<{ ok: boolean; entries?: ClipHistoryEntry[]; reason?: string }>;
   replayClipboardHistory: (entry: ClipHistoryEntry) => Promise<{ ok: boolean; reason?: string }>;
-  // C6 拾取器热键（试注册=冲突检测）
+  // C6 拾取器热键（试注册=冲突检测；录制期注销/重挂=防自身全局键拦截捕获）
   tryPickerAccelerator: (acc: string) => Promise<{ ok: boolean; reason?: string }>;
+  beginPickerRecording: () => Promise<{ ok: boolean }>;
+  endPickerRecording: () => Promise<{ ok: boolean }>;
   setPickerHotkey: (acc: string) => Promise<{ ok: boolean; hotkey?: string }>;
   resetPickerHotkey: () => Promise<{ ok: boolean; hotkey?: string }>;
   getConfig: () => Promise<Partial<Config>>;
@@ -262,6 +264,10 @@ declare global {
 // 试注册=标准路径）+恢复默认。录制成功即 IPC 落盘生效 + patchClipboard 同步 draft
 //（后续「保存」落盘同值=幂等，两条保存路径不打架）。修饰必须含 Ctrl 或 Alt（纯 Shift+键会
 // 挡正常打字，拒绝录制）。
+// 录制两坑（真机实报修）：
+//   ① 自身全局键在 OS 层拦截 keydown（按当前生效键录不进）——录制 begin/end IPC 注销/重挂；
+//   ② Windows 中文输入法活动时 ev.key="Process"（IME 吞 key）——主键判定走 ev.code 兜底
+//     （KeyA→A / Digit3→3 / F1-F24 原样 / Space）。
 function HotkeyRow({ hotkey, onSaved }: { hotkey: string; onSaved: (acc: string) => void }) {
   const [recording, setRecording] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -271,6 +277,8 @@ function HotkeyRow({ hotkey, onSaved }: { hotkey: string; onSaved: (acc: string)
     if (!recording) {
       return;
     }
+    window.gotifyAPI.beginPickerRecording?.();
+    const restore = () => window.gotifyAPI.endPickerRecording?.();
     const onKey = async (ev: KeyboardEvent) => {
       ev.preventDefault();
       ev.stopPropagation();
@@ -287,12 +295,16 @@ function HotkeyRow({ hotkey, onSaved }: { hotkey: string; onSaved: (acc: string)
         setMessage({ ok: false, text: "需含 Ctrl 或 Alt（纯 Shift 组合会挡打字）" });
         return;
       }
+      // 主键：key 优先（非 IME 环境），"Process"/其他（IME 吞 key）走 code 映射兜底
       let main = "";
       if (/^[a-zA-Z0-9]$/.test(ev.key)) main = ev.key.toUpperCase();
       else if (/^F([1-9]|1[0-9]|2[0-4])$/.test(ev.key)) main = ev.key;
       else if (ev.code === "Space") main = "Space";
+      if (!main && /^Key[A-Z]$/.test(ev.code || "")) main = ev.code.slice(3);
+      if (!main && /^Digit[0-9]$/.test(ev.code || "")) main = ev.code.slice(5);
+      if (!main && /^F([1-9]|1[0-9]|2[0-4])$/.test(ev.code || "")) main = ev.code;
       if (!main || mods.length === 0) {
-        setMessage({ ok: false, text: "不支持的键（支持 字母/数字/F1-F24/空格 + Ctrl/Alt/Shift）" });
+        setMessage({ ok: false, text: "不支持的键（支持 字母/数字/F1-F24/空格 + Ctrl/Alt/Shift）；若中文输入法干扰请切英文再录" });
         return;
       }
       const acc = `${mods.join("+")}+${main}`;
@@ -311,7 +323,10 @@ function HotkeyRow({ hotkey, onSaved }: { hotkey: string; onSaved: (acc: string)
       }
     };
     window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      restore(); // 卸载/退出录制一律重挂（setPickerHotkey 落盘后 registerHotkey 也幂等）
+    };
   }, [recording, onSaved]);
 
   return (

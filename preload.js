@@ -8,8 +8,11 @@ contextBridge.exposeInMainWorld("gotifyAPI", {
   probeClipboardCapability: (payload) => ipcRenderer.invoke("clipboard:probeCapability", payload),
   getClipboardHistory: () => ipcRenderer.invoke("clipboard:getHistory"),
   replayClipboardHistory: (entry) => ipcRenderer.invoke("clipboard:replay", entry),
-  // C6 拾取器热键（按录改键+试注册冲突检测——Electron 无枚举系统热键 API，试注册=标准路径）
+  // C6 拾取器热键（按录改键+试注册冲突检测——Electron 无枚举系统热键 API，试注册=标准路径；
+  // 录制期注销/重挂=防自身全局键在 OS 层拦截捕获）
   tryPickerAccelerator: (acc) => ipcRenderer.invoke("picker:tryAccelerator", acc),
+  beginPickerRecording: () => ipcRenderer.invoke("picker:beginRecording"),
+  endPickerRecording: () => ipcRenderer.invoke("picker:endRecording"),
   setPickerHotkey: (acc) => ipcRenderer.invoke("picker:setHotkey", acc),
   resetPickerHotkey: () => ipcRenderer.invoke("picker:resetHotkey"),
   getConfig: () => ipcRenderer.invoke("config:get"),
