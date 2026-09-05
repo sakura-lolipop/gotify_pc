@@ -56,6 +56,7 @@
   let entries = [];
   let filtered = [];
   let cursor = 0;
+  let loading = true; // 拉取期间真加载态（防「暂无历史」误导——冷启动缓存空直拉窗口）
 
   // 主题跟随（app 单一真相：theme:get = nativeTheme.shouldUseDarkColors，同 renderer apply 手法；
   // picker 生命周期短（失焦即关），开窗查一次够）
@@ -72,12 +73,12 @@
     const files = items.filter((it) => it?.kind === "file");
     const images = items.filter((it) => it?.kind === "image");
     if (files.length + images.length === 0) {
-      return { icon: "📝", main: texts.join(" ").replace(/\s+/g, " ").trim() || "（空）" };
+      return { main: texts.join(" ").replace(/\s+/g, " ").trim() || "（空）" };
     }
-    if (images.length === 1 && files.length === 0) return { icon: "🖼", main: "图片" };
-    if (files.length === 1 && files[0]?.name) return { icon: "📄", main: String(files[0].name) };
-    if (texts.length > 0) return { icon: "📦", main: `${images.length + files.length} 个文件 + 文本` };
-    return { icon: "📦", main: `${images.length + files.length} 个文件` };
+    if (images.length === 1 && files.length === 0) return { main: "图片" };
+    if (files.length === 1 && files[0]?.name) return { main: String(files[0].name) };
+    if (texts.length > 0) return { main: `${images.length + files.length} 个文件 + 文本` };
+    return { main: `${images.length + files.length} 个文件` };
   }
 
   function timeOf(entry) {
@@ -101,17 +102,17 @@
     if (filtered.length === 0) {
       const div = document.createElement("div");
       div.className = "empty";
-      div.textContent = entries.length === 0 ? "暂无历史（server 环 20 条）" : "无匹配条目";
+      div.textContent = loading && entries.length === 0 ? "加载中…" : entries.length === 0 ? "暂无历史（server 环 20 条）" : "无匹配条目";
       listEl.appendChild(div);
       return;
     }
     filtered.forEach((entry, i) => {
-      const { icon, main } = summarize(entry);
+      const { main } = summarize(entry);
       const div = document.createElement("div");
       div.className = "entry" + (i === cursor ? " sel" : "");
       const mainEl = document.createElement("div");
       mainEl.className = "main";
-      mainEl.textContent = `${icon} ${main}`;
+      mainEl.textContent = main;
       const metaEl = document.createElement("div");
       metaEl.className = "meta";
       metaEl.textContent = timeOf(entry);
@@ -150,6 +151,7 @@
   (async () => {
     const res = await window.gotifyAPI?.getClipboardHistory?.();
     entries = Array.isArray(res?.entries) ? res.entries : [];
+    loading = false;
     render();
   })();
 </script>

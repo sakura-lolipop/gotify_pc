@@ -313,6 +313,7 @@ class ClipboardSync extends EventEmitter {
     this.lastSyncHash = ""; // 已同步远端 groupHash（②③共用；每启动重置——不持久化）
     this.lastServerTs = 0; // 已知最新槽的 server 时间戳（乱序旧帧丢弃）
     this.historyCache = []; // 历史环缓存（fetchHistory 拉取时喂；托盘速取子菜单数据源——C6 拾取器）
+    this.historyCacheAt = 0; // 缓存龄（ms；getHistory stale-while-revalidate 判据）
     this.suppressUntil = 0; // ①落地抑制窗（吸收系统写入延迟）
     this.uploadAbort = null; // 超车：队列深度=1，新复制掐断在途
     this.fatalMessage = null;
@@ -836,6 +837,7 @@ class ClipboardSync extends EventEmitter {
         this.lastSyncHash = String(data.slot.groupHash); // 响应=最终 slot（§3.3）
         this.lastServerTs = Number(data.slot.ts) || 0;
         this.contentBaseline = group; // 上传成功认领内容基线（同内容重读不重传）
+        this.scheduleHistoryRefresh(); // 上传成功=环头变了（本地写者不产生 WS 帧——自己触发刷新）
       }
     } catch (error) {
       console.error("[ClipSync] put error:", error?.message || error);
@@ -884,6 +886,7 @@ class ClipboardSync extends EventEmitter {
         this.lastSyncHash = String(data.slot.groupHash);
         this.lastServerTs = Number(data.slot.ts) || 0;
         this.contentBaseline = group; // 上传成功认领内容基线（同内容重读不重传）
+        this.scheduleHistoryRefresh(); // 上传成功=环头变了（本地写者不产生 WS 帧——自己触发刷新）
       }
     } catch (error) {
       console.error("[ClipSync] put group error:", error?.message || error);
@@ -911,6 +914,7 @@ class ClipboardSync extends EventEmitter {
       this.contentBaseline = ""; // 内容基线同清：重连=重新评估本机板（TOP4 强制重比）
       this.cachedLocalGroup = { seq: -1, group: "" };
       this.sendFrame({ type: "clip_sub" });
+      this.scheduleHistoryRefresh(); // 启动/重连预热历史缓存（拾取器首开零延迟——冷启动缓存空=直拉的洞）
     }
   }
 
@@ -920,7 +924,21 @@ class ClipboardSync extends EventEmitter {
   onClipFrame(frame) {
     this.clipChain = (this.clipChain || Promise.resolve())
       .then(() => this.handleClipFrame(frame))
+      .then(() => this.scheduleHistoryRefresh()) // 远端落地=环头变了,事件驱动刷缓存（拾取器预读,零轮询）
       .catch((error) => this.fatal(`处理远端帧异常: ${error?.message || error}`));
+  }
+
+  // 历史缓存事件驱动刷新（拾取器预读：WS clip_update/上传成功点挂此,节流 3s;开窗缓存优先
+  // 显示零延迟,数据最终新鲜——stale-while-revalidate）。拉取同时喂托盘速取（historyCache 同源）。
+  scheduleHistoryRefresh() {
+    const now = Date.now();
+    if (this._histRefreshAt && now - this._histRefreshAt < 3000) {
+      return;
+    }
+    this._histRefreshAt = now;
+    this.fetchHistory(20)
+      .then(() => this.refreshMenu?.())
+      .catch(() => {});
   }
 
   async handleClipFrame(frame) {
@@ -1205,6 +1223,7 @@ class ClipboardSync extends EventEmitter {
     const data = await response.json();
     const entries = Array.isArray(data?.entries) ? data.entries : [];
     this.historyCache = entries;
+    this.historyCacheAt = Date.now();
     return entries;
   }
 
@@ -1398,8 +1417,17 @@ function initClipboardSync({ electron, getConfig, client, saveConfig, onMenuRefr
   electron.ipcMain.handle("clipboard:probeCapability", async (_, payload) =>
     probeClipboardCapability(payload?.serverUrl, payload?.clientToken)
   );
-  // 历史列表（C6 客户端半·本批渲染位）：renderer 拉条目渲染
+  // 历史列表（C6 拾取器预读·stale-while-revalidate）：缓存新鲜（<10s）即时返；缓存陈旧/空
+  // 返缓存并同时后台刷新（拾取器开窗零延迟——事件驱动刷新点见 scheduleHistoryRefresh 头注）
   electron.ipcMain.handle("clipboard:getHistory", async () => {
+    const fresh = sync.historyCacheAt && Date.now() - sync.historyCacheAt < 10_000;
+    if (fresh) {
+      return { ok: true, entries: sync.historyCache };
+    }
+    sync.scheduleHistoryRefresh(); // 后台刷（陈旧缓存也先返,下次开窗即新）
+    if (sync.historyCache.length > 0) {
+      return { ok: true, entries: sync.historyCache, stale: true };
+    }
     try {
       const entries = await sync.fetchHistory(20);
       return { ok: true, entries };
