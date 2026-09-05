@@ -467,12 +467,13 @@ class ClipboardSync extends EventEmitter {
       return;
     }
     const bytes = Buffer.byteLength(text, "utf8");
-    // 生效上限=min(用户设置, 1MB)：server JSON 腿被 maxIngestBodyLen=1MB 硬顶
+    // 生效上限=min(用户设置, 1024KB)：server JSON 腿被 maxIngestBodyLen=1MB 硬顶
     //（§4「server 只做绝对护栏」的物理实现），调大设置也只按 1MB 生效不炸 413。
-    const maxTextMB = Math.min(Number(cfg.maxTextMB) || 1, 1);
-    const maxTextBytes = maxTextMB * 1024 * 1024;
+    // KB 单位（2026-09-05 真机验收：MB 粒度只能设 1=没得调）。
+    const maxTextKB = Math.min(Number(cfg.maxTextKB) || 1024, 1024);
+    const maxTextBytes = maxTextKB * 1024;
     if (bytes > maxTextBytes) {
-      this.rateLimitedBalloon("text-oversize", "剪贴板同步", `文本超过 ${maxTextMB}MB 上限，本条未同步`);
+      this.rateLimitedBalloon("text-oversize", "剪贴板同步", `文本超过 ${maxTextKB}KB 上限，本条未同步`);
       return; // 超用户上限→整组跳过+提示一次（§7）
     }
     const group = groupHashOf([textItemHash(text)]);

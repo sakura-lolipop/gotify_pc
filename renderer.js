@@ -24731,7 +24731,7 @@ var DEFAULT_CONFIG = {
     maxItemMB: 50,
     maxGroupMB: 100,
     maxItems: 32,
-    maxTextMB: 1,
+    maxTextKB: 1024,
     receiveDir: ""
   }
 };
@@ -25282,13 +25282,14 @@ function SettingsModal({
                   className: "h-7 w-20 rounded border border-border bg-input px-2 text-right text-[12px] tabular-nums text-text-soft outline-none focus:border-primary"
                 }
               ) }),
-              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u6587\u672C\u4E0A\u9650\uFF08MB\uFF09", hint: "\u670D\u52A1\u5668\u901A\u9053\u786C\u9876 1MB\uFF1A\u8C03\u5927\u4EC5\u5728\u6B64\u8303\u56F4\u5185\u751F\u6548", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u6587\u672C\u4E0A\u9650\uFF08KB\uFF09", hint: "\u670D\u52A1\u5668\u901A\u9053\u786C\u9876 1024KB\uFF1A\u8C03\u5927\u4EC5\u5728\u6B64\u8303\u56F4\u5185\u751F\u6548", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                 "input",
                 {
                   type: "number",
                   min: 1,
-                  value: (_l = (_k = draft.clipboardSync) == null ? void 0 : _k.maxTextMB) != null ? _l : 1,
-                  onChange: (event) => patchClipboard({ maxTextMB: Math.max(1, Math.floor(Number(event.target.value) || 0)) }),
+                  max: 1024,
+                  value: (_l = (_k = draft.clipboardSync) == null ? void 0 : _k.maxTextKB) != null ? _l : 1024,
+                  onChange: (event) => patchClipboard({ maxTextKB: Math.min(1024, Math.max(1, Math.floor(Number(event.target.value) || 0))) }),
                   className: "h-7 w-20 rounded border border-border bg-input px-2 text-right text-[12px] tabular-nums text-text-soft outline-none focus:border-primary"
                 }
               ) }),

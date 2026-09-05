@@ -51,7 +51,7 @@ const DEFAULT_CONFIG = {
     maxItemMB: 50,
     maxGroupMB: 100,
     maxItems: 32,
-    maxTextMB: 1,
+    maxTextKB: 1024,
     receiveDir: ""
   }
 };
@@ -735,12 +735,13 @@ function SettingsModal({
                 className="h-7 w-20 rounded border border-border bg-input px-2 text-right text-[12px] tabular-nums text-text-soft outline-none focus:border-primary"
               />
             </SettingRow>
-            <SettingRow label="文本上限（MB）" hint="服务器通道硬顶 1MB：调大仅在此范围内生效">
+            <SettingRow label="文本上限（KB）" hint="服务器通道硬顶 1024KB：调大仅在此范围内生效">
               <input
                 type="number"
                 min={1}
-                value={draft.clipboardSync?.maxTextMB ?? 1}
-                onChange={(event) => patchClipboard({ maxTextMB: Math.max(1, Math.floor(Number(event.target.value) || 0)) })}
+                max={1024}
+                value={draft.clipboardSync?.maxTextKB ?? 1024}
+                onChange={(event) => patchClipboard({ maxTextKB: Math.min(1024, Math.max(1, Math.floor(Number(event.target.value) || 0))) })}
                 className="h-7 w-20 rounded border border-border bg-input px-2 text-right text-[12px] tabular-nums text-text-soft outline-none focus:border-primary"
               />
             </SettingRow>

@@ -59,7 +59,8 @@ const DEFAULT_CONFIG = {
     maxItemMB: 50,
     maxGroupMB: 100,
     maxItems: 32,
-    maxTextMB: 1,
+    maxTextKB: 1024, // KB 单位（2026-09-05 用户真机验收：MB 粒度下只能设 1=没得调；
+    // server JSON 腿硬顶 1MB，KB 才能在顶内自选。旧键 maxTextMB 忽略（无实际存量）
     receiveDir: ""
   }
 };
