@@ -1,6 +1,6 @@
 const path = require("node:path");
 const fs = require("node:fs");
-const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog, nativeTheme, clipboard, shell, ClipboardItem, globalShortcut } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog, nativeTheme, clipboard, shell, ClipboardItem, globalShortcut, screen } = require("electron");
 const { ConfigStore } = require("./src/services/config-store");
 const { HistoryStore } = require("./src/services/history-store");
 const { GotifyClient, testConnection } = require("./src/services/gotify-client");
@@ -707,6 +707,7 @@ app.whenReady().then(() => {
       globalShortcut,
       BrowserWindow,
       ipcMain,
+      screen,
       saveConfigForPicker: (next) => applyConfigChange(next, "ui")
     },
     sync: clipboardSync,

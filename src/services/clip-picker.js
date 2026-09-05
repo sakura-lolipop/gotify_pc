@@ -53,6 +53,20 @@ function initClipPicker({ electron, sync, getConfig, onMenuRefresh }) {
   }
 
   // ── 拾取器窗（按需创建/复用；失焦即关——剪贴板工具惯例）──
+  // 弹出定位（用户要求「Win+V 同款」+裁定**永远跟光标不记位**）：鼠标光标处弹（Electron
+  // 拿不到全局插入点 caret，光标近似=微软同路）+屏幕边界 clamp；顶栏可拖（当次挪开用，
+  // 下次仍跟光标——不落盘）。
+  function placePicker(win) {
+    const [w, h] = win.getSize();
+    const cur = electron.screen.getCursorScreenPoint();
+    const display = electron.screen.getDisplayNearestPoint(cur);
+    const area = display.workArea; // 任务栏安全区
+    let x = cur.x - Math.round(w / 2); // 光标居窗中（Win+V 观感），下方略偏
+    let y = cur.y + 20;
+    x = Math.min(Math.max(x, area.x), area.x + area.width - w);
+    y = Math.min(Math.max(y, area.y), area.y + area.height - h);
+    win.setPosition(x, y, false);
+  }
 
   function openPicker() {
     if (pickerWin) {
@@ -84,6 +98,7 @@ function initClipPicker({ electron, sync, getConfig, onMenuRefresh }) {
     }
     pickerWin.loadFile(path.join(__dirname, "..", "..", "picker.html"));
     pickerWin.once("ready-to-show", () => {
+      placePicker(pickerWin);
       pickerWin.show();
       pickerWin.focus();
     });

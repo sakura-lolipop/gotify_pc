@@ -14,9 +14,14 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; background: transparent; }
   body { color: var(--text); font: 13px/1.45 "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif; }
+  #topbar {
+    position: relative; display: flex; align-items: center;
+    -webkit-app-region: drag; /* frameless 窗拖拽区（用户要求可拖；当次挪开用——不记位，下次仍跟光标） */
+  }
   #search {
-    width: 100%; padding: 10px 40px 10px 14px; border: none; border-bottom: 1px solid var(--border);
+    flex: 1; padding: 10px 40px 10px 14px; border: none; border-bottom: 1px solid var(--border);
     background: var(--input); color: var(--text); font-size: 13px; outline: none;
+    -webkit-app-region: no-drag; /* 拖拽区内交互元素显式退出，否则不可点 */
   }
   #search::placeholder { color: var(--text-muted); }
   #close {
@@ -24,6 +29,7 @@
     display: flex; align-items: center; justify-content: center;
     border: none; border-radius: 6px; background: transparent;
     color: var(--text-muted); font-size: 14px; line-height: 1; cursor: pointer;
+    -webkit-app-region: no-drag; /* 拖拽区内交互元素退出 */
   }
   #close:hover { background: var(--layer-hover); color: var(--danger-text); }
   #list { height: calc(100% - 41px); overflow-y: auto; padding: 4px 0; }
@@ -38,8 +44,10 @@
 </style>
 </head>
 <body>
-<input id="search" placeholder="过滤…（↑↓ 选择，Enter 取，Esc 关）" autofocus />
-<button id="close" title="关闭 (Esc)" aria-label="关闭">×</button>
+<div id="topbar">
+  <input id="search" placeholder="过滤…（↑↓ 选择，Enter 取，Esc 关）" autofocus />
+  <button id="close" title="关闭 (Esc)" aria-label="关闭">×</button>
+</div>
 <div id="list"></div>
 <script>
   const listEl = document.getElementById("list");
