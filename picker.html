@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<!-- C6 拾取器窗（clip-picker.js 创建）：20 条 + ↑↓/Enter + 输入即过滤；失焦/Esc 关。
+     原生 JS 零构建（不进 vite/esbuild 面——20 条列表不值得 React 栈）；样式自含。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'" />
+<title>剪贴板历史</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; background: #1e1f24; color: #e6e6e9; font: 13px/1.45 "Segoe UI", "Microsoft YaHei", sans-serif; }
+  #search {
+    width: 100%; padding: 10px 14px; border: none; border-bottom: 1px solid #33353c;
+    background: #232429; color: #e6e6e9; font-size: 13px; outline: none;
+  }
+  #search::placeholder { color: #7a7c85; }
+  #list { height: calc(100% - 41px); overflow-y: auto; padding: 4px 0; }
+  .entry {
+    padding: 8px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 2px;
+    border-left: 2px solid transparent;
+  }
+  .entry .main { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .entry .meta { font-size: 11px; color: #7a7c85; }
+  .entry.sel { background: #2d2f37; border-left-color: #4f8cff; }
+  .empty { padding: 24px 14px; color: #7a7c85; text-align: center; }
+</style>
+</head>
+<body>
+<input id="search" placeholder="过滤…（↑↓ 选择，Enter 取，Esc 关）" autofocus />
+<div id="list"></div>
+<script>
+  const api = {
+    getHistory: () => window.gotifyAPI?.getClipboardHistory?.(),
+    replay: (entry) => window.gotifyAPI?.replayClipboardHistory?.(entry)
+  };
+  const listEl = document.getElementById("list");
+  const searchEl = document.getElementById("search");
+  let entries = [];
+  let filtered = [];
+  let cursor = 0;
+
+  function summarize(entry) {
+    const items = Array.isArray(entry?.slot?.items) ? entry.slot.items : [];
+    const texts = items.filter((it) => it?.kind === "text").map((it) => String(it.text || ""));
+    const files = items.filter((it) => it?.kind === "file");
+    const images = items.filter((it) => it?.kind === "image");
+    if (files.length + images.length === 0) {
+      return { icon: "📝", main: texts.join(" ").replace(/\s+/g, " ").trim() || "（空）" };
+    }
+    if (images.length === 1 && files.length === 0) return { icon: "🖼", main: "图片" };
+    if (files.length === 1 && files[0]?.name) return { icon: "📄", main: String(files[0].name) };
+    if (texts.length > 0) return { icon: "📦", main: `${images.length + files.length} 个文件 + 文本` };
+    return { icon: "📦", main: `${images.length + files.length} 个文件` };
+  }
+
+  function timeOf(entry) {
+    const ts = entry?.slot?.ts;
+    if (!ts) return "";
+    const d = new Date(ts);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    return sameDay ? d.toLocaleTimeString() : d.toLocaleString();
+  }
+
+  function render() {
+    const q = searchEl.value.trim().toLowerCase();
+    filtered = entries.filter((e) => {
+      if (!q) return true;
+      const s = JSON.stringify(e?.slot?.items || "");
+      return s.toLowerCase().includes(q);
+    });
+    if (cursor >= filtered.length) cursor = Math.max(0, filtered.length - 1);
+    listEl.innerHTML = "";
+    if (filtered.length === 0) {
+      const div = document.createElement("div");
+      div.className = "empty";
+      div.textContent = entries.length === 0 ? "暂无历史（server 环 20 条）" : "无匹配条目";
+      listEl.appendChild(div);
+      return;
+    }
+    filtered.forEach((entry, i) => {
+      const { icon, main } = summarize(entry);
+      const div = document.createElement("div");
+      div.className = "entry" + (i === cursor ? " sel" : "");
+      const mainEl = document.createElement("div");
+      mainEl.className = "main";
+      mainEl.textContent = `${icon} ${main}`;
+      const metaEl = document.createElement("div");
+      metaEl.className = "meta";
+      metaEl.textContent = timeOf(entry);
+      div.appendChild(mainEl);
+      div.appendChild(metaEl);
+      div.onclick = () => pick(entry);
+      div.onmousemove = () => {
+        if (cursor !== i) { cursor = i; paint(); }
+      };
+      listEl.appendChild(div);
+    });
+    const sel = listEl.children[cursor];
+    sel?.scrollIntoView({ block: "nearest" });
+  }
+
+  function paint() {
+    [...listEl.children].forEach((el, i) => el.classList.toggle("sel", i === cursor));
+    listEl.children[cursor]?.scrollIntoView({ block: "nearest" });
+  }
+
+  async function pick(entry) {
+    if (!entry) return;
+    try { await api.replay?.(entry); } catch {}
+    window.close();
+  }
+
+  searchEl.addEventListener("input", render);
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") { ev.preventDefault(); window.close(); return; }
+    if (ev.key === "ArrowDown") { ev.preventDefault(); if (cursor < filtered.length - 1) { cursor++; paint(); } return; }
+    if (ev.key === "ArrowUp") { ev.preventDefault(); if (cursor > 0) { cursor--; paint(); } return; }
+    if (ev.key === "Enter") { ev.preventDefault(); pick(filtered[cursor]); return; }
+    // 其余按键回流搜索框
+    if (document.activeElement !== searchEl) searchEl.focus();
+  });
+
+  (async () => {
+    const res = await api.getHistory?.();
+    entries = Array.isArray(res?.entries) ? res.entries : [];
+    render();
+  })();
+</script>
+</body>
+</html>

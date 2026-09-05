@@ -1,10 +1,11 @@
 const path = require("node:path");
 const fs = require("node:fs");
-const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog, nativeTheme, clipboard, shell, ClipboardItem } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, dialog, nativeTheme, clipboard, shell, ClipboardItem, globalShortcut } = require("electron");
 const { ConfigStore } = require("./src/services/config-store");
 const { HistoryStore } = require("./src/services/history-store");
 const { GotifyClient, testConnection } = require("./src/services/gotify-client");
 const { initClipboardSync } = require("./src/services/clipboard-sync");
+const { initClipPicker } = require("./src/services/clip-picker");
 const {
   initNotifier,
   notify,
@@ -22,6 +23,7 @@ let configStore = null;
 let historyStore = null;
 let gotifyClient = null;
 let clipboardSync = null;
+let clipPicker = null; // C6 拾取器（clip-picker.js）：热键窗+托盘速取+可配置改键
 let appIcon = null;
 let currentConnectionStatus = { connected: false, status: "未连接" };
 let storageDirPath = "";
@@ -474,6 +476,7 @@ async function applyConfigChange(nextConfig, source = "ui") {
   }
   // CP-C2：剪贴板同步开关/暂停消化（start/stop+sub/unsub+fatal 复位）
   clipboardSync?.onConfigChanged(previous, saved);
+  clipPicker?.registerHotkey(); // C6：热键随配置换装（同步开关/热键值变化即时重挂）
   refreshTrayMenu();
   return saved;
 }
@@ -695,6 +698,24 @@ app.whenReady().then(() => {
     onMenuRefresh: refreshTrayMenu
   });
   clipboardSync.start();
+  // C6 拾取器装配（热键窗+托盘速取+可配置改键）：globalShortcut/BrowserWindow 注入同
+  // initClipboardSync 惯例；saveConfigForPicker 走 applyConfigChange 保存链单入口。
+  // sync.pickerSubmenu/refreshMenu 回填=速取子菜单挂进 clipboardSync.traySection
+  //（托盘段事实仍收在剪贴板域，picker 只提供交互）。
+  clipPicker = initClipPicker({
+    electron: {
+      globalShortcut,
+      BrowserWindow,
+      ipcMain,
+      saveConfigForPicker: (next) => applyConfigChange(next, "ui")
+    },
+    sync: clipboardSync,
+    getConfig: () => configStore.get(),
+    onMenuRefresh: refreshTrayMenu
+  });
+  clipboardSync.pickerSubmenu = () => clipPicker.traySubmenu();
+  clipboardSync.refreshMenu = refreshTrayMenu;
+  clipPicker.registerHotkey();
   setupIpc();
   // CP6 双肤单一事实：nativeTheme.themeSource 已解析「跟随系统/手动浅/手动深」，
   // renderer 只消费 shouldUseDarkColors 挂/摘 .dark 类，不再各自判断。
@@ -732,6 +753,7 @@ app.whenReady().then(() => {
 // app.quit() pass through.
 let archivalFlushDone = false;
 app.on("before-quit", (event) => {
+  globalShortcut.unregisterAll(); // C6 拾取器热键注销（Electron 惯例：退出不留全局键）
   if (archivalFlushDone) {
     return;
   }

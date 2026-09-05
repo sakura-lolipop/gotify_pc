@@ -312,6 +312,7 @@ class ClipboardSync extends EventEmitter {
     this.lastProbedText = ""; // 无 koffi 时的内容比对回退
     this.lastSyncHash = ""; // 已同步远端 groupHash（②③共用；每启动重置——不持久化）
     this.lastServerTs = 0; // 已知最新槽的 server 时间戳（乱序旧帧丢弃）
+    this.historyCache = []; // 历史环缓存（fetchHistory 拉取时喂；托盘速取子菜单数据源——C6 拾取器）
     this.suppressUntil = 0; // ①落地抑制窗（吸收系统写入延迟）
     this.uploadAbort = null; // 超车：队列深度=1，新复制掐断在途
     this.fatalMessage = null;
@@ -1191,7 +1192,8 @@ class ClipboardSync extends EventEmitter {
   // ── 历史找回环（C6 服务端半已落：GET /history 拉 20 条；本批=条目渲染+重放分支，
   // C6 客户端半剩拾取器骨架[托盘子菜单/热键]）──
 
-  // 拉历史列表（新→旧）。渲染用元数据全在 slot 里（不拉 blob）。
+  // 拉历史列表（新→旧）。渲染用元数据全在 slot 里（不拉 blob）。每次拉取喂 historyCache
+  // （托盘速取子菜单数据源——C6 拾取器：缓存最坏滞后到上次开窗，速取场景够用）。
   async fetchHistory(limit = 20) {
     const config = this.getConfig();
     const base = String(config.serverUrl || "").trim().replace(/\/+$/, "");
@@ -1201,7 +1203,9 @@ class ClipboardSync extends EventEmitter {
       throw new Error(`HTTP ${response.status}`);
     }
     const data = await response.json();
-    return Array.isArray(data?.entries) ? data.entries : [];
+    const entries = Array.isArray(data?.entries) ? data.entries : [];
+    this.historyCache = entries;
+    return entries;
   }
 
   // 点选历史条目=重放：写本地剪贴板→正常同步链重新上位当前槽→全设备生效（C6 契约：
@@ -1295,6 +1299,24 @@ class ClipboardSync extends EventEmitter {
     }
     const actions = this.trayActions();
     const paused = Boolean(state.paused);
+    // C6 拾取器：「最近复制」子菜单（速取条目由 picker 注入的 submenuProvider 提供——
+    // 本模块只持槽位事实，速取交互归 clip-picker）。懒加载自收敛：缓存空且未在拉→
+    // fire-and-forget 拉一次，拉完 onMenuRefresh 重建（缓存非空不再拉）。
+    if (!paused && this.pickerSubmenu) {
+      const submenu = this.pickerSubmenu();
+      if (submenu.length > 0) {
+        items.push({ label: "最近复制", submenu });
+      }
+      if (!this.historyCache.length && !this._historyFetching) {
+        this._historyFetching = true;
+        this.fetchHistory(20)
+          .catch(() => {})
+          .finally(() => {
+            this._historyFetching = false;
+            this.refreshMenu?.();
+          });
+      }
+    }
     items.push({
       label: paused ? "恢复剪贴板同步" : "暂停剪贴板同步",
       click: actions["toggle-pause"].run

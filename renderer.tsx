@@ -52,7 +52,8 @@ const DEFAULT_CONFIG = {
     maxGroupMB: 100,
     maxItems: 32,
     maxTextKB: 1024,
-    receiveDir: ""
+    receiveDir: "",
+    pickerHotkey: ""
   }
 };
 
@@ -221,6 +222,10 @@ type GotifyAPI = {
   probeClipboardCapability: (payload: { serverUrl?: string; clientToken?: string }) => Promise<{ supported?: boolean | null; status?: number; reason?: string }>;
   getClipboardHistory: () => Promise<{ ok: boolean; entries?: ClipHistoryEntry[]; reason?: string }>;
   replayClipboardHistory: (entry: ClipHistoryEntry) => Promise<{ ok: boolean; reason?: string }>;
+  // C6 拾取器热键（试注册=冲突检测）
+  tryPickerAccelerator: (acc: string) => Promise<{ ok: boolean; reason?: string }>;
+  setPickerHotkey: (acc: string) => Promise<{ ok: boolean; hotkey?: string }>;
+  resetPickerHotkey: () => Promise<{ ok: boolean; hotkey?: string }>;
   getConfig: () => Promise<Partial<Config>>;
   saveConfig: (config: Config) => Promise<Config>;
   testConnection: (payload: { serverUrl: string; clientToken: string }) => Promise<void>;
@@ -251,6 +256,90 @@ declare global {
   interface Window {
     gotifyAPI: GotifyAPI;
   }
+}
+
+// C6 拾取器热键行：显示当前键 +「按录」改键（试注册验冲突——Electron 无枚举系统热键 API，
+// 试注册=标准路径）+恢复默认。录制成功即 IPC 落盘生效 + patchClipboard 同步 draft
+//（后续「保存」落盘同值=幂等，两条保存路径不打架）。修饰必须含 Ctrl 或 Alt（纯 Shift+键会
+// 挡正常打字，拒绝录制）。
+function HotkeyRow({ hotkey, onSaved }: { hotkey: string; onSaved: (acc: string) => void }) {
+  const [recording, setRecording] = React.useState(false);
+  const [message, setMessage] = React.useState<{ ok: boolean; text: string } | null>(null);
+  const display = hotkey || "Ctrl+Alt+V";
+
+  React.useEffect(() => {
+    if (!recording) {
+      return;
+    }
+    const onKey = async (ev: KeyboardEvent) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ev.key === "Escape") {
+        setRecording(false);
+        setMessage(null);
+        return;
+      }
+      const mods: string[] = [];
+      if (ev.ctrlKey) mods.push("Control");
+      if (ev.altKey) mods.push("Alt");
+      if (ev.shiftKey) mods.push("Shift");
+      if (!ev.ctrlKey && !ev.altKey) {
+        setMessage({ ok: false, text: "需含 Ctrl 或 Alt（纯 Shift 组合会挡打字）" });
+        return;
+      }
+      let main = "";
+      if (/^[a-zA-Z0-9]$/.test(ev.key)) main = ev.key.toUpperCase();
+      else if (/^F([1-9]|1[0-9]|2[0-4])$/.test(ev.key)) main = ev.key;
+      else if (ev.code === "Space") main = "Space";
+      if (!main || mods.length === 0) {
+        setMessage({ ok: false, text: "不支持的键（支持 字母/数字/F1-F24/空格 + Ctrl/Alt/Shift）" });
+        return;
+      }
+      const acc = `${mods.join("+")}+${main}`;
+      const probe = await window.gotifyAPI.tryPickerAccelerator(acc);
+      if (!probe.ok) {
+        setMessage({ ok: false, text: probe.reason === "occupied" ? `「${acc}」已被其他程序占用，请换一组` : `「${acc}」无效` });
+        return;
+      }
+      const saved = await window.gotifyAPI.setPickerHotkey(acc);
+      if (saved.ok) {
+        setRecording(false);
+        setMessage({ ok: true, text: `已生效：${acc}` });
+        onSaved(acc);
+      } else {
+        setMessage({ ok: false, text: "保存失败" });
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [recording, onSaved]);
+
+  return (
+    <SettingRow label="历史拾取器热键" hint="弹最近 20 条复制列表（↑↓ 选 / Enter 取 / 输入过滤）；托盘「最近复制」同入口">
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => { setRecording(!recording); setMessage(null); }}
+          className={`h-7 rounded border px-2 text-[12px] tabular-nums transition-colors ${recording ? "border-primary bg-primary/10 text-primary" : "border-border bg-input text-text-soft hover:bg-card-hover"}`}
+        >
+          {recording ? "按下新组合…（Esc 取消）" : display}
+        </button>
+        <button
+          type="button"
+          onClick={async () => {
+            const r = await window.gotifyAPI.resetPickerHotkey();
+            if (r.ok) { setMessage({ ok: true, text: `已恢复默认：${r.hotkey}` }); onSaved(""); }
+          }}
+          className="h-7 rounded border border-border bg-input px-2 text-[12px] text-text-soft hover:bg-card-hover"
+        >
+          默认
+        </button>
+        {message ? (
+          <span className={`text-[11px] ${message.ok ? "text-success-text" : "text-danger-text"}`}>{message.text}</span>
+        ) : null}
+      </div>
+    </SettingRow>
+  );
 }
 
 function formatDate(value) {
@@ -753,7 +842,12 @@ function SettingsModal({
                 className="h-7 w-40 rounded border border-border bg-input px-2 text-[12px] text-text-soft outline-none focus:border-primary"
               />
             </SettingRow>
-            {Boolean(draft.clipboardSync?.enabled) ? <ClipHistoryPanel formatTime={formatDate} /> : null}
+            {Boolean(draft.clipboardSync?.enabled) ? (
+              <>
+                <HotkeyRow hotkey={String(draft.clipboardSync?.pickerHotkey || "")} onSaved={(acc) => patchClipboard({ pickerHotkey: acc })} />
+                <ClipHistoryPanel formatTime={formatDate} />
+              </>
+            ) : null}
           </div>
           <div className="rounded border border-border-light bg-card-hover-alt p-3">
             <div className="mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted">外观</div>

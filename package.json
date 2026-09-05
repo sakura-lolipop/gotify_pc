@@ -5,7 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "npm run build:assets && npm run prepare:icon && node scripts/patch-electron-icon.js && electron .",
-    "lint": "node --check main.js && node --check preload.js && node --check src/services/config-store.js && node --check src/services/history-store.js && node --check src/services/gotify-client.js && node --check src/services/clipboard-sync.js",
+    "lint": "node --check main.js && node --check preload.js && node --check src/services/config-store.js && node --check src/services/history-store.js && node --check src/services/gotify-client.js && node --check src/services/clipboard-sync.js && node --check src/services/clip-picker.js",
     "prepare:icon": "node scripts/prepare-icon.js",
     "build:css": "npx tailwindcss -i src/tailwind.css -o assets/tailwind.css --minify",
     "build:renderer": "npx esbuild renderer.tsx --bundle --platform=browser --format=esm --target=es2018 --jsx=automatic --outfile=renderer.js",
@@ -53,7 +53,8 @@
       "assets/**/*",
       "src/**/*",
       "node_modules/**/*",
-      "package.json"
+      "package.json",
+      "picker.html"
     ],
     "asar": true,
     "afterPack": "./scripts/after-pack.js",
