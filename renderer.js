@@ -24732,7 +24732,8 @@ var DEFAULT_CONFIG = {
     maxGroupMB: 100,
     maxItems: 32,
     maxTextKB: 1024,
-    receiveDir: ""
+    receiveDir: "",
+    pickerHotkey: ""
   }
 };
 function hexToRgba(hex, alpha) {
@@ -24838,6 +24839,99 @@ function SettingRow({ label, hint, children }) {
     /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "flex w-44 shrink-0 items-center justify-end gap-2", children })
   ] });
 }
+function HotkeyRow({ hotkey, onSaved }) {
+  const [recording, setRecording] = (0, import_react2.useState)(false);
+  const [message, setMessage] = (0, import_react2.useState)(null);
+  const display = hotkey || "Ctrl+Alt+V";
+  (0, import_react2.useEffect)(() => {
+    var _a, _b;
+    if (!recording) {
+      return;
+    }
+    (_b = (_a = window.gotifyAPI).beginPickerRecording) == null ? void 0 : _b.call(_a);
+    const restore = () => {
+      var _a2, _b2;
+      return (_b2 = (_a2 = window.gotifyAPI).endPickerRecording) == null ? void 0 : _b2.call(_a2);
+    };
+    const onKey = async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ev.key === "Escape") {
+        setRecording(false);
+        setMessage(null);
+        return;
+      }
+      const mods = [];
+      if (ev.ctrlKey) mods.push("Control");
+      if (ev.altKey) mods.push("Alt");
+      if (ev.shiftKey) mods.push("Shift");
+      if (!ev.ctrlKey && !ev.altKey) {
+        setMessage({ ok: false, text: "\u9700\u542B Ctrl \u6216 Alt\uFF08\u7EAF Shift \u7EC4\u5408\u4F1A\u6321\u6253\u5B57\uFF09" });
+        return;
+      }
+      let main = "";
+      if (/^[a-zA-Z0-9]$/.test(ev.key)) main = ev.key.toUpperCase();
+      else if (/^F([1-9]|1[0-9]|2[0-4])$/.test(ev.key)) main = ev.key;
+      else if (ev.code === "Space") main = "Space";
+      if (!main && /^Key[A-Z]$/.test(ev.code || "")) main = ev.code.slice(3);
+      if (!main && /^Digit[0-9]$/.test(ev.code || "")) main = ev.code.slice(5);
+      if (!main && /^F([1-9]|1[0-9]|2[0-4])$/.test(ev.code || "")) main = ev.code;
+      if (!main || mods.length === 0) {
+        setMessage({ ok: false, text: "\u4E0D\u652F\u6301\u7684\u952E\uFF08\u652F\u6301 \u5B57\u6BCD/\u6570\u5B57/F1-F24/\u7A7A\u683C + Ctrl/Alt/Shift\uFF09\uFF1B\u82E5\u4E2D\u6587\u8F93\u5165\u6CD5\u5E72\u6270\u8BF7\u5207\u82F1\u6587\u518D\u5F55" });
+        return;
+      }
+      const acc = `${mods.join("+")}+${main}`;
+      const probe = await window.gotifyAPI.tryPickerAccelerator(acc);
+      if (!probe.ok) {
+        setMessage({ ok: false, text: probe.reason === "occupied" ? `\u300C${acc}\u300D\u5DF2\u88AB\u5176\u4ED6\u7A0B\u5E8F\u5360\u7528\uFF0C\u8BF7\u6362\u4E00\u7EC4` : `\u300C${acc}\u300D\u65E0\u6548` });
+        return;
+      }
+      const saved = await window.gotifyAPI.setPickerHotkey(acc);
+      if (saved.ok) {
+        setRecording(false);
+        setMessage({ ok: true, text: `\u5DF2\u751F\u6548\uFF1A${acc}` });
+        onSaved(acc);
+      } else {
+        setMessage({ ok: false, text: "\u4FDD\u5B58\u5931\u8D25" });
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      restore();
+    };
+  }, [recording, onSaved]);
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(SettingRow, { label: "\u5386\u53F2\u62FE\u53D6\u5668\u70ED\u952E", hint: "\u5F39\u6700\u8FD1 20 \u6761\u590D\u5236\u5217\u8868\uFF08\u2191\u2193 \u9009 / Enter \u53D6 / \u8F93\u5165\u8FC7\u6EE4\uFF09\uFF1B\u6258\u76D8\u300C\u6700\u8FD1\u590D\u5236\u300D\u540C\u5165\u53E3", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "flex items-center gap-1.5", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+      "button",
+      {
+        type: "button",
+        onClick: () => {
+          setRecording(!recording);
+          setMessage(null);
+        },
+        className: `h-7 rounded border px-2 text-[12px] tabular-nums transition-colors ${recording ? "border-primary bg-primary/10 text-primary" : "border-border bg-input text-text-soft hover:bg-card-hover"}`,
+        children: recording ? "\u6309\u4E0B\u65B0\u7EC4\u5408\u2026\uFF08Esc \u53D6\u6D88\uFF09" : display
+      }
+    ),
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+      "button",
+      {
+        type: "button",
+        onClick: async () => {
+          const r = await window.gotifyAPI.resetPickerHotkey();
+          if (r.ok) {
+            setMessage({ ok: true, text: `\u5DF2\u6062\u590D\u9ED8\u8BA4\uFF1A${r.hotkey}` });
+            onSaved("");
+          }
+        },
+        className: "h-7 rounded border border-border bg-input px-2 text-[12px] text-text-soft hover:bg-card-hover",
+        children: "\u9ED8\u8BA4"
+      }
+    ),
+    message ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: `text-[11px] ${message.ok ? "text-success-text" : "text-danger-text"}`, children: message.text }) : null
+  ] }) });
+}
 function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -24888,7 +24982,7 @@ function SettingsModal({
   storageLockedByEnv,
   onResetNotice
 }) {
-  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o;
   const [showToken, setShowToken] = (0, import_react2.useState)(false);
   const [applications, setApplications] = (0, import_react2.useState)([]);
   const [soundList, setSoundList] = (0, import_react2.useState)([]);
@@ -25302,7 +25396,10 @@ function SettingsModal({
                   className: "h-7 w-40 rounded border border-border bg-input px-2 text-[12px] text-text-soft outline-none focus:border-primary"
                 }
               ) }),
-              Boolean((_n = draft.clipboardSync) == null ? void 0 : _n.enabled) ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(ClipHistoryPanel, { formatTime: formatDate }) : null
+              Boolean((_n = draft.clipboardSync) == null ? void 0 : _n.enabled) ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(HotkeyRow, { hotkey: String(((_o = draft.clipboardSync) == null ? void 0 : _o.pickerHotkey) || ""), onSaved: (acc) => patchClipboard({ pickerHotkey: acc }) }),
+                /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(ClipHistoryPanel, { formatTime: formatDate })
+              ] }) : null
             ] }),
             /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "rounded border border-border-light bg-card-hover-alt p-3", children: [
               /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "mb-1.5 text-[11px] font-semibold tracking-wider text-text-muted", children: "\u5916\u89C2" }),
